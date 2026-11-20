@@ -107,6 +107,7 @@ def build_meta() -> dict:
 class MetaView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes: list = []  # cheap/static or signature-protected: the anonymous per-IP limit would break shared networks
 
     def get(self, request):
         return Response(build_meta())

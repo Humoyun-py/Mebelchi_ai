@@ -53,6 +53,7 @@ class AvatarView(APIView):
 class AvatarFileView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes: list = []  # cheap/static or signature-protected: the anonymous per-IP limit would break shared networks
 
     @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def get(self, request, pk):

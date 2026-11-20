@@ -62,17 +62,17 @@ export default function Chat() {
   useEffect(() => () => recRef.current?.stop(), [])
 
   const send = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, attachments }: { content: string; attachments: Attachment[] }) => {
       let cid = id
       if (!cid) { cid = String((await api.post<Conversation>('/conversations/', {})).data.id) }
-      const res = await api.post<ChatMessage[]>(`/conversations/${cid}/messages/`, { content, attachments: atts.map(({ type, id: aid }) => ({ type, id: aid })) })
+      const res = await api.post<ChatMessage[]>(`/conversations/${cid}/messages/`, { content, attachments: attachments.map(({ type, id: aid }) => ({ type, id: aid })) })
       return { cid, res: res.data }
     },
-    onMutate: (content) => { setPending({ id: -1, role: 'user', content, attachments: atts.map((a) => ({ type: a.type, id: a.id, name: a.name })), metadata: {}, feedback: '', created_at: '' }); setText(''); setAtts([]) },
+    onMutate: ({ content, attachments }) => { setPending({ id: -1, role: 'user', content, attachments: attachments.map((a) => ({ type: a.type, id: a.id, name: a.name })), metadata: {}, feedback: '', created_at: '' }); setText(''); setAtts([]) },
     onSuccess: ({ cid }) => { qc.invalidateQueries({ queryKey: ['conversations'] }); qc.invalidateQueries({ queryKey: ['messages', cid] }).then(() => setPending(null)); if (!id) nav(`/app/assistant/${cid}`, { replace: true }) },
     onError: (e) => { setPending(null); toast.error(apiError(e).message) },
   })
-  const submit = () => { const c = text.trim(); if (c && !send.isPending) send.mutate(c) }
+  const submit = () => { const c = text.trim(); if (c && !send.isPending) send.mutate({ content: c, attachments: atts }) }
   const refresh = () => qc.invalidateQueries({ queryKey: ['messages', id] })
   const edit = useMutation({ mutationFn: async () => api.patch(`/messages/${editing!.id}/`, { content: editText }), onSuccess: () => { setEditing(null); refresh() }, onError: (e) => toast.error(apiError(e).message) })
   const regen = useMutation({ mutationFn: (m: ChatMessage) => api.post(`/messages/${m.id}/regenerate/`), onSuccess: refresh, onError: (e) => toast.error(apiError(e).message) })

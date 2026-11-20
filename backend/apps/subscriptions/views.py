@@ -20,6 +20,7 @@ class PlanSerializer(serializers.ModelSerializer):
 class PlanListView(ListAPIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes: list = []  # cheap/static or signature-protected: the anonymous per-IP limit would break shared networks
     queryset = Plan.objects.filter(is_active=True)
     serializer_class = PlanSerializer
     pagination_class = None
