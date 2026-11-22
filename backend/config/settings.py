@@ -96,21 +96,11 @@ TEMPLATES = [
     }
 ]
 
-# Database: PostgreSQL when POSTGRES_DB is set, SQLite otherwise (tests / quick local dev).
-if env("POSTGRES_DB"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("POSTGRES_DB"),
-            "USER": env("POSTGRES_USER", "mebelchi"),
-            "PASSWORD": env("POSTGRES_PASSWORD", ""),
-            "HOST": env("POSTGRES_HOST", "localhost"),
-            "PORT": env("POSTGRES_PORT", "5432"),
-            "CONN_MAX_AGE": 60,
-        }
-    }
-else:
-    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
+# Database: centralized selection in config/database.py (PostgreSQL first, optional SQLite fallback).
+from config.database import log_database_status, resolve_database  # noqa: E402
+
+_default_db, DATABASE_STATUS = resolve_database(os.environ, BASE_DIR)
+DATABASES = {"default": _default_db}
 
 AUTH_USER_MODEL = "users.User"
 AUTH_PASSWORD_VALIDATORS = [
@@ -239,3 +229,4 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", "INFO")},
 }
+log_database_status(DATABASE_STATUS)
