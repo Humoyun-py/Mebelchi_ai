@@ -673,9 +673,11 @@ paths:
           enum:
           - homeowner
           - maker
+          - workshop
         description: |-
           * `maker` - Furniture Maker
           * `homeowner` - Home Owner
+          * `workshop` - Furniture Workshop
       - name: search
         required: false
         in: query
@@ -744,6 +746,142 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminUser'
+          description: ''
+  /api/v1/admin-api/workshops/:
+    get:
+      operationId: admin_api_workshops_list
+      description: Administrators review workshop profiles. Every status change is
+        written to the audit log.
+      parameters:
+      - in: query
+        name: city
+        schema:
+          type: string
+      - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - individual
+          - workshop
+        description: |-
+          * `individual` - Individual master
+          * `workshop` - Workshop
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - approved
+          - pending
+          - suspended
+        description: |-
+          * `pending` - Pending review
+          * `approved` - Approved
+          * `suspended` - Suspended
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWorkshopList'
+          description: ''
+  /api/v1/admin-api/workshops/{id}/:
+    get:
+      operationId: admin_api_workshops_retrieve
+      description: Administrators review workshop profiles. Every status change is
+        written to the audit log.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+  /api/v1/admin-api/workshops/{id}/approve/:
+    post:
+      operationId: admin_api_workshops_approve_create
+      description: Administrators review workshop profiles. Every status change is
+        written to the audit log.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+  /api/v1/admin-api/workshops/{id}/suspend/:
+    post:
+      operationId: admin_api_workshops_suspend_create
+      description: Administrators review workshop profiles. Every status change is
+        written to the audit log.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
           description: ''
   /api/v1/analytics/features/:
     get:
@@ -3305,6 +3443,307 @@ paths:
               schema:
                 $ref: '#/components/schemas/Project'
           description: ''
+  /api/v1/room-flows/:
+    get:
+      operationId: room_flows_list
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - abandoned
+          - active
+          - completed
+        description: |-
+          * `active` - Active
+          * `completed` - Completed
+          * `abandoned` - Abandoned
+      tags:
+      - room-flows
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRoomFlowSummaryList'
+          description: ''
+    post:
+      operationId: room_flows_create
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      tags:
+      - room-flows
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/room-flows/{id}/:
+    get:
+      operationId: room_flows_retrieve
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - room-flows
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/room-flows/{id}/abandon/:
+    post:
+      operationId: room_flows_abandon_create
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - room-flows
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/room-flows/{id}/answer/:
+    post:
+      operationId: room_flows_answer_create
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - room-flows
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Answer'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Answer'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Answer'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/room-flows/{id}/back/:
+    post:
+      operationId: room_flows_back_create
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - room-flows
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/room-flows/{id}/items/:
+    post:
+      operationId: room_flows_items_create
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - room-flows
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Item'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Item'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Item'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/room-flows/{id}/items/{item_id}/:
+    patch:
+      operationId: room_flows_items_partial_update
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{12}$
+        required: true
+      tags:
+      - room-flows
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedItem'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedItem'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedItem'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: room_flows_items_destroy
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{12}$
+        required: true
+      tags:
+      - room-flows
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/room-flows/{id}/model/:
+    get:
+      operationId: room_flows_model_retrieve
+      description: The room-design conversation. Every query is scoped to the requesting
+        user; another user's flow is a 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - room-flows
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/subscriptions/me/:
     get:
       operationId: subscriptions_me_retrieve
@@ -3517,6 +3956,282 @@ paths:
       responses:
         '200':
           description: No response body
+  /api/v1/telegram/bot/room-flows/:
+    post:
+      operationId: telegram_bot_room_flows_create
+      tags:
+      - telegram
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BotStart'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BotStart'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BotStart'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/telegram/bot/room-flows/{id}/:
+    get:
+      operationId: telegram_bot_room_flows_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/telegram/bot/room-flows/{id}/abandon/:
+    post:
+      operationId: telegram_bot_room_flows_abandon_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BotTelegram'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BotTelegram'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BotTelegram'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/telegram/bot/room-flows/{id}/answer/:
+    post:
+      operationId: telegram_bot_room_flows_answer_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BotAnswer'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BotAnswer'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BotAnswer'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/telegram/bot/room-flows/{id}/back/:
+    post:
+      operationId: telegram_bot_room_flows_back_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BotTelegram'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BotTelegram'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BotTelegram'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/telegram/bot/room-flows/{id}/items/:
+    post:
+      operationId: telegram_bot_room_flows_items_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BotItem'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BotItem'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BotItem'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/telegram/bot/room-flows/{id}/items/{item_id}/:
+    patch:
+      operationId: telegram_bot_room_flows_items_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: item_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - telegram
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBotItem'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBotItem'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBotItem'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: telegram_bot_room_flows_items_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: item_id
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: rev
+        schema:
+          type: integer
+          minimum: 0
+      tags:
+      - telegram
+      responses:
+        '204':
+          description: No response body
+  /api/v1/telegram/bot/room-flows/{id}/model/:
+    get:
+      operationId: telegram_bot_room_flows_model_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/telegram/bot/room-flows/{id}/photo/:
+    post:
+      operationId: telegram_bot_room_flows_photo_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BotPhoto'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BotPhoto'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BotPhoto'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/telegram/bot/unlink/:
     post:
       operationId: telegram_bot_unlink_create
@@ -3759,6 +4474,75 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/v1/workshops/me/:
+    get:
+      operationId: workshops_me_retrieve
+      description: The signed-in workshop's own profile. Other accounts get 403, and
+        no one can read another profile here.
+      tags:
+      - workshops
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+    post:
+      operationId: workshops_me_create
+      description: The signed-in workshop's own profile. Other accounts get 403, and
+        no one can read another profile here.
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+    patch:
+      operationId: workshops_me_partial_update
+      description: The signed-in workshop's own profile. Other accounts get 403, and
+        no one can read another profile here.
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkshop'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkshop'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkshop'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
   /api/v1/workspace/summary/:
     get:
       operationId: workspace_summary_retrieve
@@ -3914,7 +4698,7 @@ components:
           type: string
           readOnly: true
         role:
-          $ref: '#/components/schemas/Role899Enum'
+          $ref: '#/components/schemas/Role94eEnum'
         is_active:
           type: boolean
         is_staff:
@@ -3943,6 +4727,15 @@ components:
       - last_name
       - plan
       - project_count
+    Answer:
+      type: object
+      properties:
+        step:
+          $ref: '#/components/schemas/StepEnum'
+        value: {}
+      required:
+      - step
+      - value
     Avatar:
       type: object
       properties:
@@ -3953,6 +4746,96 @@ components:
     BlankEnum:
       enum:
       - ''
+    BotAnswer:
+      type: object
+      properties:
+        step:
+          $ref: '#/components/schemas/StepEnum'
+        value: {}
+        telegram_id:
+          type: integer
+      required:
+      - step
+      - telegram_id
+      - value
+    BotItem:
+      type: object
+      description: Shape check only. Sizes, structure and position are validated by
+        the geometry engine, with its own messages.
+      properties:
+        template:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 80
+        x:
+          type: number
+          format: double
+        z:
+          type: number
+          format: double
+        rot:
+          type: integer
+        width:
+          type: number
+          format: double
+        depth:
+          type: number
+          format: double
+        height:
+          type: number
+          format: double
+        shelves:
+          type: integer
+        doors:
+          type: integer
+        drawers:
+          type: integer
+        thickness:
+          type: number
+          format: double
+        color:
+          type: string
+          maxLength: 7
+        rev:
+          type: integer
+          minimum: 0
+          description: Room revision the client last saw (or send it as an If-Match
+            header).
+        telegram_id:
+          type: integer
+      required:
+      - telegram_id
+    BotPhoto:
+      type: object
+      properties:
+        telegram_id:
+          type: integer
+        file:
+          type: string
+          format: uri
+      required:
+      - file
+      - telegram_id
+    BotStart:
+      type: object
+      properties:
+        telegram_id:
+          type: integer
+        new:
+          type: boolean
+          default: false
+          description: Abandon the active flow and start a fresh one.
+      required:
+      - telegram_id
+    BotTelegram:
+      type: object
+      properties:
+        telegram_id:
+          type: integer
+      required:
+      - telegram_id
     CabinetInput:
       type: object
       properties:
@@ -4330,6 +5213,51 @@ components:
       - size_bytes
       - url
       - width
+    Item:
+      type: object
+      description: Shape check only. Sizes, structure and position are validated by
+        the geometry engine, with its own messages.
+      properties:
+        template:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 80
+        x:
+          type: number
+          format: double
+        z:
+          type: number
+          format: double
+        rot:
+          type: integer
+        width:
+          type: number
+          format: double
+        depth:
+          type: number
+          format: double
+        height:
+          type: number
+          format: double
+        shelves:
+          type: integer
+        doors:
+          type: integer
+        drawers:
+          type: integer
+        thickness:
+          type: number
+          format: double
+        color:
+          type: string
+          maxLength: 7
+        rev:
+          type: integer
+          minimum: 0
+          description: Room revision the client last saw (or send it as an If-Match
+            header).
     LanguageEnum:
       enum:
       - en
@@ -4799,6 +5727,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Project'
+    PaginatedRoomFlowSummaryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomFlowSummary'
     PaginatedUserFileList:
       type: object
       required:
@@ -4822,6 +5773,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UserFile'
+    PaginatedWorkshopList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workshop'
     PasswordChange:
       type: object
       properties:
@@ -4892,7 +5866,7 @@ components:
           type: string
           readOnly: true
         role:
-          $ref: '#/components/schemas/Role899Enum'
+          $ref: '#/components/schemas/Role94eEnum'
         is_active:
           type: boolean
         is_staff:
@@ -4912,6 +5886,53 @@ components:
         project_count:
           type: integer
           readOnly: true
+    PatchedBotItem:
+      type: object
+      description: Shape check only. Sizes, structure and position are validated by
+        the geometry engine, with its own messages.
+      properties:
+        template:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 80
+        x:
+          type: number
+          format: double
+        z:
+          type: number
+          format: double
+        rot:
+          type: integer
+        width:
+          type: number
+          format: double
+        depth:
+          type: number
+          format: double
+        height:
+          type: number
+          format: double
+        shelves:
+          type: integer
+        doors:
+          type: integer
+        drawers:
+          type: integer
+        thickness:
+          type: number
+          format: double
+        color:
+          type: string
+          maxLength: 7
+        rev:
+          type: integer
+          minimum: 0
+          description: Room revision the client last saw (or send it as an If-Match
+            header).
+        telegram_id:
+          type: integer
     PatchedConversation:
       type: object
       properties:
@@ -5080,6 +6101,51 @@ components:
           type: string
           format: date-time
           readOnly: true
+    PatchedItem:
+      type: object
+      description: Shape check only. Sizes, structure and position are validated by
+        the geometry engine, with its own messages.
+      properties:
+        template:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 80
+        x:
+          type: number
+          format: double
+        z:
+          type: number
+          format: double
+        rot:
+          type: integer
+        width:
+          type: number
+          format: double
+        depth:
+          type: number
+          format: double
+        height:
+          type: number
+          format: double
+        shelves:
+          type: integer
+        doors:
+          type: integer
+        drawers:
+          type: integer
+        thickness:
+          type: number
+          format: double
+        color:
+          type: string
+          maxLength: 7
+        rev:
+          type: integer
+          minimum: 0
+          description: Room revision the client last saw (or send it as an If-Match
+            header).
     PatchedMaterial:
       type: object
       properties:
@@ -5230,7 +6296,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/Role899Enum'
+          - $ref: '#/components/schemas/Role94eEnum'
           readOnly: true
         role_selected:
           type: boolean
@@ -5278,6 +6344,32 @@ components:
           type: string
           readOnly: true
         created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedWorkshop:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        kind:
+          $ref: '#/components/schemas/WorkshopKindEnum'
+        name:
+          type: string
+          maxLength: 160
+        city:
+          type: string
+          maxLength: 80
+        status:
+          allOf:
+          - $ref: '#/components/schemas/WorkshopStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
           type: string
           format: date-time
           readOnly: true
@@ -5420,17 +6512,74 @@ components:
       type: object
       properties:
         role:
-          $ref: '#/components/schemas/Role899Enum'
+          $ref: '#/components/schemas/RoleRoleEnum'
       required:
       - role
-    Role899Enum:
+    Role94eEnum:
+      enum:
+      - maker
+      - homeowner
+      - workshop
+      type: string
+      description: |-
+        * `maker` - Furniture Maker
+        * `homeowner` - Home Owner
+        * `workshop` - Furniture Workshop
+    RoleRoleEnum:
       enum:
       - maker
       - homeowner
       type: string
       description: |-
-        * `maker` - Furniture Maker
-        * `homeowner` - Home Owner
+        * `maker` - maker
+        * `homeowner` - homeowner
+    RoomFlowSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/RoomFlowSummaryStatusEnum'
+          readOnly: true
+        step:
+          type: string
+          readOnly: true
+        design:
+          type: integer
+          readOnly: true
+          nullable: true
+        photo:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - design
+      - id
+      - photo
+      - status
+      - step
+      - updated_at
+    RoomFlowSummaryStatusEnum:
+      enum:
+      - active
+      - completed
+      - abandoned
+      type: string
+      description: |-
+        * `active` - Active
+        * `completed` - Completed
+        * `abandoned` - Abandoned
     SourceEnum:
       enum:
       - upload
@@ -5453,6 +6602,24 @@ components:
       description: |-
         * `active` - Active
         * `archived` - Archived
+    StepEnum:
+      enum:
+      - goal
+      - photo
+      - elements
+      - size
+      - openings
+      - style
+      - furnish
+      type: string
+      description: |-
+        * `goal` - goal
+        * `photo` - photo
+        * `elements` - elements
+        * `size` - size
+        * `openings` - openings
+        * `style` - style
+        * `furnish` - furnish
     Template:
       type: object
       properties:
@@ -5524,7 +6691,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/Role899Enum'
+          - $ref: '#/components/schemas/Role94eEnum'
           readOnly: true
         role_selected:
           type: boolean
@@ -5606,6 +6773,57 @@ components:
         * `document` - Document
         * `model` - 3D model
         * `other` - Other
+    Workshop:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        kind:
+          $ref: '#/components/schemas/WorkshopKindEnum'
+        name:
+          type: string
+          maxLength: 160
+        city:
+          type: string
+          maxLength: 80
+        status:
+          allOf:
+          - $ref: '#/components/schemas/WorkshopStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - city
+      - created_at
+      - id
+      - name
+      - status
+      - updated_at
+    WorkshopKindEnum:
+      enum:
+      - individual
+      - workshop
+      type: string
+      description: |-
+        * `individual` - Individual master
+        * `workshop` - Workshop
+    WorkshopStatusEnum:
+      enum:
+      - pending
+      - approved
+      - suspended
+      type: string
+      description: |-
+        * `pending` - Pending review
+        * `approved` - Approved
+        * `suspended` - Suspended
   securitySchemes:
     jwtAuth:
       type: http
