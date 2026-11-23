@@ -53,8 +53,9 @@ The site is served by Nginx on `WEB_PORT` (default 80). See [docs/DEPLOYMENT.md]
 ## Tests
 
 ```bash
-cd backend  && python manage.py test apps     # 114 tests: engine, optimizer, geometry, auth, isolation, uploads, admin, chat, tasks
-cd frontend && npm test                       # 24 tests: API error handling, i18n, formatting, UI components
+cd backend  && python manage.py test apps     # 308 tests: engine, optimizer, geometry, rooms, auth, roles, audit, isolation, uploads, admin, chat, bot API
+cd frontend && npm test                       # 66 tests: API error handling, i18n, formatting, UI components, room design
+cd telegram_bot && python -m pytest -q        # 89 tests (+3 end-to-end tests that need a live backend, see docs/ROOM_FLOW.md)
 cd frontend && npx tsc -b && npm run build    # type-check and production build
 ```
 
@@ -68,6 +69,7 @@ The backend suite also passes against PostgreSQL 16 (set `POSTGRES_*` variables)
 - **Material optimizer**: guillotine shelf packing with kerf, edge trim, grain-aware rotation, six sort strategies plus seeded random-order trials (bounded by job size; never worse than the fixed strategies, saved a sheet in about 4% of random benchmark jobs); reports utilization, waste, leftover strip, estimated cost (when sheet prices are set) and any part too large for the sheet. SVG sheet layouts in the UI and PDF.
 - **3D**: parametric model built from the same parameters as the calculator; orbit/zoom/pan, dimension annotations, colors, wireframe, 2D front elevation, export **GLB / glTF / OBJ**.
 - **Chat assistant** (rule-based): answers in the language you write (Uzbek, Russian, English), handles greetings and small talk, markdown, tables, copy/edit/regenerate/like/dislike/delete/export, attachments, voice input.
+- **Room design** (web and Telegram bot): a guided flow (room type, photo, doors/windows/furniture, size, openings, style) that builds a 3D room, suggests a layout and lets you place, move, rotate, resize and remove furniture; the state is kept on the server, so you can continue on another device. See [docs/ROOM_FLOW.md](docs/ROOM_FLOW.md).
 - **Home owner**: interior designer with room photo, style presets, furniture options, dimensions, wall placement and a top-down room plan with fit warnings.
 - **Projects, folders, gallery (masonry, lightbox, favorites, search), files, notifications, subscriptions, settings (7 sections), admin dashboard.**
 - Dark (default) and light themes saved to the profile; English, Uzbek, Russian; responsive from phone to desktop.

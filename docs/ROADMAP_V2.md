@@ -20,6 +20,7 @@ home_owner (customer), furniture_maker (master), workshop (new: furniture worksh
 A workshop becomes active only after onboarding and admin approval.
 
 ## Phase 1: Customer chat (web and bot share one state machine)
+Status: implemented on `feat/room-chat-flow`, not merged yet. How it works and its limits: [ROOM_FLOW.md](ROOM_FLOW.md).
 1. Goal: kitchen, bedroom, living room, wardrobe, office.
 2. Optional room photo upload (stored, not analysed).
 3. Room elements: walls, door, window, required furniture.

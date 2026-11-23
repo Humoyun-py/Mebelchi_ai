@@ -68,6 +68,21 @@ curl -X POST /api/v1/calculations/material/ -H "Authorization: Bearer $T" -H 'Co
 | POST | `geometry/export/{glb|gltf|obj}/` | binary download; throttled |
 | CRUD | `designs/` | `kind: furniture|interior`, free-form `config` (≤200 KB), optional `project`, `room_image` |
 
+## Room design (`room-flows/`)
+
+The guided room-design conversation, shared by the web app and the Telegram bot. Full description, rules, errors and the bot endpoints
+(`telegram/bot/room-flows/...`): [ROOM_FLOW.md](ROOM_FLOW.md).
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `room-flows/` | start a flow; returns `{id, status, step, descriptor, answers, rev, ...}` |
+| GET | `room-flows/?status=active`, `room-flows/{id}/` | list and resume |
+| POST | `room-flows/{id}/answer/` | `{step, value}`; wrong step 409 `step_mismatch`, bad value 400 |
+| POST | `room-flows/{id}/back/ abandon/` | |
+| GET | `room-flows/{id}/model/` | 3D boxes of the room and its furniture |
+| POST | `room-flows/{id}/items/` | add furniture; `rev` required |
+| PATCH/DELETE | `room-flows/{id}/items/{item_id}/` | change or remove; `rev` required, stale `rev` is 409 `rev_conflict` |
+
 ## Chat
 
 | Method | Path | Notes |

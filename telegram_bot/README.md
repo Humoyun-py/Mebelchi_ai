@@ -21,6 +21,7 @@ A Telegram ID on its own never proves ownership of a web account; the code is th
 | Projects | list, create (`Mebel yaratish` / `Yangi loyiha`), rename |
 | Material calculator | 6 validated questions, backend engine result (panels, area, edge banding) |
 | Cutting list | same questions, optional project, optimized layout summary, PDF and Excel download |
+| Room design | `/room` (and a menu button): the guided room flow; state is kept on the server, so it continues after a restart. Doors, windows and furniture by buttons, sizes typed, openings by wall and distance, furniture added from the catalogue and nudged, rotated or removed. See `docs/ROOM_FLOW.md` |
 | Files | send PDF, JPG/PNG/WEBP, DWG or DXF; validated (type, size, file signature) before upload |
 | Notifications | unread list; the same messages are pushed to the chat by the backend |
 | Admin | `/admin`, `/stats`, `/users`, `/system_status`, `/broadcast` (only for IDs in `ADMIN_TELEGRAM_IDS` and only if the linked account is staff) |

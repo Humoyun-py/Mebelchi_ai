@@ -29,9 +29,10 @@ Frontend and backend are separate applications; the only contract is REST + JWT.
 | furniture | `FurnitureTemplate` (category presets used by the editors) |
 | calculations | pure engine (`engine.py`: parts, validation), `Calculation` records |
 | cutting_lists | `CuttingList`, `CuttingPart`, `OptimizationRun`; optimizer (`optimizer.py`); PDF/XLSX export |
-| geometry | parametric box-model builder; GLB / glTF / OBJ exporters |
+| geometry | parametric box-model builder (`builder.py`) and room model (`room.py`: validation, walls with openings, furniture placement, layout suggestion); GLB / glTF / OBJ exporters |
 | designs | `Design` (furniture + interior configuration) |
-| conversations | `Conversation`, `Message`; rule-based command engine |
+| conversations | `Conversation`, `Message`; rule-based command engine (`assistant.py`) and the room-design state machine (`flow.py`) |
+| rooms | `RoomFlow` (conversation state per owner); services shared by the web and bot endpoints; the room itself lives in `Design.config` (`room.v1`). See `docs/ROOM_FLOW.md` |
 | galleries | `GalleryImage` (upload, favorite, rename, search) |
 | files | `UserFile` (PDF/drawings/documents), storage accounting |
 | subscriptions | `Plan`, `Subscription`, `Payment` (records only, no payment gateway) |
@@ -64,6 +65,7 @@ cutting-lists/ (+ /generate /optimize /export/pdf /export/xlsx)
 geometry/preview (POST)  geometry/export/{glb|gltf|obj} (POST)
 designs/
 conversations/ (+ /{id}/messages)
+room-flows/ (+ /{id}/answer /back /abandon /model /items/{item_id})
 gallery/ (+ /{id}/favorite)   files/
 subscriptions/plans  subscriptions/me  subscriptions/upgrade
 notifications/ (+ /{id}/read /read-all)
