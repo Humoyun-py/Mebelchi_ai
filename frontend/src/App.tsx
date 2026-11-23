@@ -17,6 +17,7 @@ const Calculator = lazy(() => import('./pages/app/Calculator'))
 const CuttingLists = lazy(() => import('./pages/app/CuttingLists'))
 const Editor = lazy(() => import('./pages/app/Editor'))
 const Interior = lazy(() => import('./pages/app/Interior'))
+const RoomFlow = lazy(() => import('./pages/app/RoomFlow'))
 const Gallery = lazy(() => import('./pages/app/Gallery'))
 const Files = lazy(() => import('./pages/app/Files'))
 const Designs = lazy(() => import('./pages/app/Designs'))
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="cutting-lists/:id" element={<L><CuttingLists /></L>} />
           <Route path="editor" element={<L><Editor /></L>} />
           <Route path="interior" element={<L><Interior /></L>} />
+          <Route path="room-flow" element={<L><RoomFlow /></L>} />
           <Route path="gallery" element={<L><Gallery /></L>} />
           <Route path="files" element={<L><Files /></L>} />
           <Route path="designs" element={<L><Designs /></L>} />
