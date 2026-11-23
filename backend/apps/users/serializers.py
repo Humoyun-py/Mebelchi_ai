@@ -26,7 +26,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RoleSerializer(serializers.Serializer):
-    role = serializers.ChoiceField(choices=User.Role.choices)
+    role = serializers.ChoiceField(choices=User.SELF_SELECTABLE_ROLES)
 
 
 class AvatarSerializer(serializers.ModelSerializer):

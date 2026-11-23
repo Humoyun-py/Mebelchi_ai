@@ -3,6 +3,7 @@ from datetime import timedelta
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
@@ -12,6 +13,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.audit import services as audit
 from apps.core.permissions import IsPlatformAdmin
 from apps.notifications.services import notify
 from apps.projects.models import Project
@@ -78,7 +80,12 @@ class UserAdminViewSet(AdminBase, viewsets.ModelViewSet):
             raise ValidationError({"detail": "You cannot remove your own admin access or deactivate yourself."})
         if "is_staff" in serializer.validated_data and not self.request.user.is_superuser:
             raise ValidationError({"is_staff": "Only superusers can change admin status."})
-        serializer.save()
+        previous_role = u.role
+        with transaction.atomic():
+            serializer.save()
+            if u.role != previous_role:
+                audit.record("user.role_changed", actor=self.request.user, target_type="user", target_id=u.pk,
+                             changes={"role": [previous_role, u.role]})
 
 
 class AdminProjectSerializer(serializers.ModelSerializer):
