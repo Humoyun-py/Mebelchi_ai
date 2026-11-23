@@ -53,8 +53,8 @@ The site is served by Nginx on `WEB_PORT` (default 80). See [docs/DEPLOYMENT.md]
 ## Tests
 
 ```bash
-cd backend  && python manage.py test apps     # 65 tests: engine, optimizer, geometry, auth, isolation, uploads, admin, chat, tasks
-cd frontend && npm test                       # 15 tests: API error handling, i18n, formatting, UI components
+cd backend  && python manage.py test apps     # 114 tests: engine, optimizer, geometry, auth, isolation, uploads, admin, chat, tasks
+cd frontend && npm test                       # 24 tests: API error handling, i18n, formatting, UI components
 cd frontend && npx tsc -b && npm run build    # type-check and production build
 ```
 
@@ -63,9 +63,9 @@ The backend suite also passes against PostgreSQL 16 (set `POSTGRES_*` variables)
 ## Features
 
 - **Auth**: register (two-step, password strength meter), **Google sign-in** (set `GOOGLE_CLIENT_ID` in `backend/.env`; without it the button explains it is not configured), JWT login with rotating refresh tokens (blacklisted on logout), password reset (no account enumeration), change password, session list and revocation, role selection stored in the database.
-- **Material calculator**: width/height/depth/thickness/shelves/doors/drawers to a full parts list (size, quantity, material, edge banding), area, edge-banding length, warnings, and the written assumptions behind every formula. Hard validation of ranges and impossible geometry.
+- **Material calculator**: width/height/depth/thickness/shelves/doors/drawers to a full parts list (size, quantity, material, edge banding), area, edge-banding length, estimated hardware counts, warnings, and the written assumptions behind every formula. Hard validation of ranges and impossible geometry.
 - **Cutting lists**: generate from a calculation or build manually, edit, save; **PDF** and **Excel** export stamped "for professional review".
-- **Material optimizer**: guillotine shelf packing with kerf, edge trim, grain-aware rotation and six sort strategies; reports utilization, waste, leftover strip, estimated cost (when sheet prices are set) and any part too large for the sheet. SVG sheet layouts in the UI and PDF.
+- **Material optimizer**: guillotine shelf packing with kerf, edge trim, grain-aware rotation, six sort strategies plus seeded random-order trials (bounded by job size; never worse than the fixed strategies, saved a sheet in about 4% of random benchmark jobs); reports utilization, waste, leftover strip, estimated cost (when sheet prices are set) and any part too large for the sheet. SVG sheet layouts in the UI and PDF.
 - **3D**: parametric model built from the same parameters as the calculator; orbit/zoom/pan, dimension annotations, colors, wireframe, 2D front elevation, export **GLB / glTF / OBJ**.
 - **Chat assistant** (rule-based): answers in the language you write (Uzbek, Russian, English), handles greetings and small talk, markdown, tables, copy/edit/regenerate/like/dislike/delete/export, attachments, voice input.
 - **Home owner**: interior designer with room photo, style presets, furniture options, dimensions, wall placement and a top-down room plan with fit warnings.
@@ -74,11 +74,11 @@ The backend suite also passes against PostgreSQL 16 (set `POSTGRES_*` variables)
 
 ## Known limitations (read before relying on it)
 
-- **Output is not verified for manufacture.** Formulas use documented assumptions (overlay back, 20 mm shelf setback, drawer slide clearances, etc.). Hardware (hinges, slides, fasteners) is not calculated. Every export says it needs professional review.
+- **Output is not verified for manufacture.** Formulas use documented assumptions (overlay back, 20 mm shelf setback, drawer slide clearances, etc.). Hardware (hinges, slides, handles, shelf pins, confirmats, back fixings) is only a rule-of-thumb quantity estimate shown next to each calculation; it is not manufacturer data and no hardware drilling or placement is modelled. Every export says it needs professional review.
 - **No image, drawing or sketch understanding.** "Analyze Drawing", "Read Hand Sketch" and room photos store the files and attach them to projects; dimensions are entered manually. This is stated in the UI.
 - **Payments are records only.** There is no payment gateway. Requesting a paid plan creates a pending payment that an administrator confirms in the admin panel. Plan prices and limits are illustrative and editable.
 - **Voice input** uses the browser's built-in speech recognition (with a one-time disclosure), which in some browsers is processed by the browser vendor.
-- **Translations**: navigation, sidebar and core actions are translated to Uzbek and Russian; long-form pages are English only. Uzbek and Russian strings should be reviewed by a native speaker.
+- **Translations**: navigation, sidebar, core actions, the calculator and cutting-list screens are translated to Uzbek and Russian; backend-generated warnings/assumptions and long-form pages are English only. Uzbek and Russian strings should be reviewed by a native speaker.
 - Landing-page statistics are platform capabilities (counts of tools, formats and categories), not customer numbers. Privacy Policy and Terms pages are templates that need legal review. The Contact footer link appears only when `VITE_CONTACT_EMAIL` is set at build time.
 - Auth tokens are kept in `localStorage` (standard SPA trade-off; mitigated by a strict CSP in the Nginx config, short access-token lifetime and refresh rotation).
 - The optimizer is a fast heuristic (guillotine shelf packing), not a provably optimal solver.

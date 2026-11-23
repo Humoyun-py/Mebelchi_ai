@@ -58,3 +58,28 @@ class EngineTests(SimpleTestCase):
         r = engine.calculate(dict(width=1500, height=2000, depth=400, thickness=18, shelves=2, doors=1))
         self.assertTrue(any("Door width" in w for w in r["warnings"]))
         self.assertTrue(any("sag" in w for w in r["warnings"]))
+
+
+class HardwareTests(SimpleTestCase):
+    def hw(self, **kw):
+        base = dict(width=800, height=2000, depth=400, thickness=18, shelves=3, doors=2, drawers=0)
+        return {h["name"]: h for h in engine.calculate(dict(base, **kw))["hardware"]}
+
+    def test_hinges_follow_door_height(self):
+        self.assertEqual(self.hw()["Hinge"]["quantity"], 8)                       # 2 doors x 4 (height 1996)
+        self.assertEqual(self.hw(height=800)["Hinge"]["quantity"], 4)             # 2 doors x 2
+        self.assertEqual(self.hw(height=1200)["Hinge"]["quantity"], 6)            # 2 doors x 3
+
+    def test_wide_door_gets_extra_hinge(self):
+        self.assertEqual(self.hw(width=1400, doors=2, height=800)["Hinge"]["quantity"], 6)  # 700 mm doors: 3 each
+
+    def test_drawers_handles_and_pins(self):
+        h = self.hw(doors=0, drawers=3, shelves=2)
+        self.assertEqual(h["Drawer slide (pair)"]["quantity"], 3)
+        self.assertEqual(h["Handle"]["quantity"], 3)
+        self.assertEqual(h["Shelf pin"]["quantity"], 8)
+        self.assertNotIn("Hinge", h)
+
+    def test_empty_options_omitted(self):
+        h = self.hw(doors=0, drawers=0, shelves=0)
+        self.assertEqual(set(h), {"Confirmat screw", "Back panel fixing"})

@@ -6,9 +6,12 @@ Rows ("shelves") span the sheet width so every cut is a guillotine cut.
 """
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 
 MAX_PIECES = 2000
+# Extra seeded random-order packings tried after the fixed strategies (bounded by piece count to keep requests fast).
+EXTRA_TRIALS = ((200, 60), (600, 15))
 PALETTE = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#06b6d4", "#ef4444", "#84cc16", "#ec4899", "#14b8a6", "#f97316"]
 
 
@@ -102,7 +105,7 @@ def _pack(items: list[Item], W: float, H: float, kerf: float, mode: str) -> list
 
 
 def optimize(parts: list[dict], sheet_length: float, sheet_width: float, kerf: float = 3.0, trim: float = 10.0,
-             allow_rotation: bool = True) -> dict:
+             allow_rotation: bool = True, trials: int | None = None) -> dict:
     """parts: [{id?, name, width, height, quantity, can_rotate?}] (mm). Returns layout + statistics."""
     for label, v, lo, hi in (("sheet_length", sheet_length, 300, 6000), ("sheet_width", sheet_width, 300, 3500),
                              ("kerf", kerf, 0, 10), ("trim", trim, 0, 50)):
@@ -142,14 +145,28 @@ def optimize(parts: list[dict], sheet_length: float, sheet_width: float, kerf: f
             (lambda i: (-(i.along * i.across), -i.across), "long_along"), (lambda i: (-(i.along * i.across), -i.across), "any"),
             (lambda i: (-i.along, -i.across), "long_along"), (lambda i: (-max(i.along, i.across), -min(i.along, i.across)), "long_along"),
         ]
-        for keyf, mode in strategies:
-            ordered = sorted(items, key=keyf)
+        def consider(ordered: list[Item], mode: str):
+            nonlocal best_key, best_sheets
             sheets = _pack(ordered, W, H, kerf, mode)
             last = sheets[-1]
             free_last = H - (last.rows[-1].y + last.rows[-1].h) if last.rows else H
             key = (len(sheets), -free_last)
             if best_key is None or key < best_key:
                 best_key, best_sheets = key, sheets
+
+        for keyf, mode in strategies:
+            consider(sorted(items, key=keyf), mode)
+        # Seeded random orders: deterministic for the same input, never worse than the fixed strategies above.
+        n_trials = trials if trials is not None else next((t for limit, t in EXTRA_TRIALS if len(items) <= limit), 0)
+        rng = random.Random(len(items) * 7919 + int(W) + int(H))
+        base = sorted(items, key=strategies[0][0])
+        for i in range(max(0, n_trials)):
+            order = base[:]
+            rng.shuffle(order)
+            # keep the tallest parts first so rows stay tight; shuffle only breaks ties inside height bands
+            band = max(1.0, max(it.across for it in items) / 8)
+            order.sort(key=lambda it: -(it.across // band))
+            consider(order, "long_along" if i % 2 == 0 else "any")
 
     names = sorted({p.get("name", "") for p in parts})
     color_of = {n: PALETTE[i % len(PALETTE)] for i, n in enumerate(names)}

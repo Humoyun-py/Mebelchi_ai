@@ -78,6 +78,9 @@ schema/  docs/   (OpenAPI via drf-spectacular)
 - Cabinet panel formulas use documented assumptions (returned in every result
   under `assumptions`); results carry `requires_professional_review: true`
   and exports are stamped "For professional review — not verified for manufacture".
+- Hardware (`hardware` in the result) is a rule-of-thumb estimate: hinges by door height/width,
+  one slide pair and handle per drawer front, 4 shelf pins per shelf, confirmats per carcass joint,
+  back-panel fixings at ~200 mm pitch. It is not manufacturer data.
 - Optimizer: guillotine shelf packing with kerf, grain-aware rotation, several
   sort strategies, picks best by (sheets, waste). Oversized parts are reported,
   never silently dropped.
@@ -86,8 +89,20 @@ schema/  docs/   (OpenAPI via drf-spectacular)
 
 React + TS + Vite + Tailwind (CSS-variable design tokens, dark default),
 Zustand (auth/theme/UI), TanStack Query (server state), Axios (JWT refresh
-interceptor), Framer Motion, React Router, R3F for 3D. Features live in
-`src/features/*`, shared UI in `src/components/ui`.
+interceptor), Framer Motion, React Router, R3F for 3D.
+
+```
+src/pages/{landing,auth,app,admin}   route-level screens
+src/components/ui                    shared primitives (Button, Card, Modal, Tabs, ...)
+src/components/three                 R3F viewer (canvas-sprite labels, no drei <Html>)
+src/layouts                          AppShell, RightPanel
+src/hooks/queries.ts                 TanStack Query hooks
+src/stores                           Zustand: auth, ui (theme, language)
+src/lib                              api (Axios), i18n (en/uz/ru dictionaries), types, format
+```
+
+Translations live in `src/lib/i18n.ts`. A vitest parity test fails if `uz` or `ru`
+lacks a key present in `en`.
 
 ## Phases
 

@@ -58,3 +58,33 @@ class OptimizerTests(SimpleTestCase):
     def test_deterministic(self):
         a, b = optimize(self.parts, 2800, 2070), optimize(self.parts, 2800, 2070)
         self.assertEqual(a["sheets"], b["sheets"])
+
+
+class ExtraTrialTests(SimpleTestCase):
+    mixed = [dict(name="A", width=530, height=1130, quantity=7, can_rotate=True), dict(name="B", width=310, height=870, quantity=11, can_rotate=True),
+             dict(name="C", width=640, height=720, quantity=9), dict(name="D", width=220, height=1490, quantity=8, can_rotate=True),
+             dict(name="E", width=450, height=980, quantity=6)]
+
+    def test_random_trials_never_worse(self):
+        base = optimize(self.mixed, 2800, 2070, trials=0)["summary"]
+        better = optimize(self.mixed, 2800, 2070)["summary"]
+        self.assertLessEqual(better["sheet_count"], base["sheet_count"])
+        if better["sheet_count"] == base["sheet_count"]:
+            self.assertGreaterEqual(better["last_sheet_offcut"]["width"], base["last_sheet_offcut"]["width"] - 1e-6)
+
+    def test_trials_deterministic_and_valid(self):
+        a, b = optimize(self.mixed, 2800, 2070), optimize(self.mixed, 2800, 2070)
+        self.assertEqual(a["sheets"], b["sheets"])
+        self.assertEqual(sum(len(s["placements"]) for s in a["sheets"]), 41)
+        for s in a["sheets"]:
+            for i, p in enumerate(s["placements"]):
+                self.assertLessEqual(p["x"] + p["w"], 2780 + 1e-6)
+                self.assertLessEqual(p["y"] + p["h"], 2050 + 1e-6)
+                for q in s["placements"][i + 1:]:
+                    self.assertFalse(overlaps(p, q))
+
+    def test_large_job_stays_fast(self):
+        import time
+        big = [dict(name="X", width=300 + (i % 7) * 40, height=500 + (i % 5) * 90, quantity=40, can_rotate=True) for i in range(12)]
+        t = time.time(); r = optimize(big, 2800, 2070); self.assertLess(time.time() - t, 5)
+        self.assertEqual(sum(len(s["placements"]) for s in r["sheets"]), 480)

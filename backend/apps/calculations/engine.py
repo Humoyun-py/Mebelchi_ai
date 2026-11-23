@@ -202,6 +202,32 @@ def build_parts(inp: CabinetInput) -> list[Part]:
     return parts
 
 
+def hardware(inp: CabinetInput) -> list[dict]:
+    """Estimated hardware counts. Rule-of-thumb values for professional review, not manufacturer data."""
+    from math import ceil
+    lay = layout(inp)
+    items: list[dict] = []
+
+    def add(name: str, qty: int, note: str):
+        if qty > 0:
+            items.append({"name": name, "quantity": qty, "note": note})
+
+    if inp.doors:
+        h = lay["door_h"]
+        per = 2 if h <= 900 else 3 if h <= 1500 else 4 if h <= 2000 else 5
+        if lay["door_w"] > 600:
+            per += 1
+        add("Hinge", per * inp.doors, f"{per} per door (door height {h:.0f} mm, width {lay['door_w']:.0f} mm)")
+    add("Drawer slide (pair)", inp.drawers, "1 pair per drawer")
+    add("Handle", inp.doors + inp.drawers, "1 per door and per drawer front")
+    add("Shelf pin", 4 * inp.shelves, "4 per adjustable shelf")
+    per_joint = max(2, ceil(inp.depth / 200))
+    add("Confirmat screw", 4 * per_joint, f"4 carcass joints x {per_joint} (about one per 200 mm of depth)")
+    perimeter = 2 * ((inp.width - BACK_CLEARANCE) + (inp.height - BACK_CLEARANCE))
+    add("Back panel fixing", ceil(perimeter / 200), "about one per 200 mm of back-panel perimeter")
+    return items
+
+
 ASSUMPTIONS = [
     "Overlay (surface-mounted) back panel, 4 mm smaller than the carcass in both directions.",
     "Sides run full height; top and bottom panels sit between the sides.",
@@ -210,7 +236,8 @@ ASSUMPTIONS = [
     "Drawers, shelves and one open top compartment share the internal height in equal slots; drawers occupy the bottom slots.",
     "Drawer boxes use 16 mm board, 13 mm clearance per side for ball-bearing slides and a box length of depth minus 50 mm.",
     "Edge banding is applied to visible front edges as listed per part.",
-    "Hinge, slide, handle and fastener hardware is not calculated.",
+    "Hardware quantities are rule-of-thumb estimates (hinges by door height, one slide pair and handle per drawer, 4 shelf pins per shelf, "
+    "confirmat screws per carcass joint, back-panel fixings at about 200 mm pitch). Check them against the actual hardware maker's tables.",
 ]
 
 
@@ -241,6 +268,7 @@ def calculate(data: dict | CabinetInput) -> dict:
             "by_material": by_material,
             "layout": {k: round(v, 1) if isinstance(v, float) else v for k, v in layout(inp).items()},
         },
+        "hardware": hardware(inp),
         "warnings": warnings,
         "assumptions": ASSUMPTIONS,
         "requires_professional_review": True,

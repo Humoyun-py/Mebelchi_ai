@@ -12,6 +12,7 @@ import { ConfirmDialog } from '../../components/ui/Modal'
 import { Breadcrumbs, EmptyState, ErrorState, Progress, Skeleton, Stat } from '../../components/ui/Misc'
 import { toast } from '../../components/ui/Toast'
 import { PanelSection, RightPanel } from '../../layouts/RightPanel'
+import { useT } from '../../lib/i18n'
 
 const FALLBACK = ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#ef4444', '#84cc16', '#ec4899']
 
@@ -58,35 +59,35 @@ function SheetSvg({ group, idx }: { group: OptGroup; idx: number }) {
 }
 
 function Detail({ id }: { id: string }) {
-  const nav = useNavigate(); const qc = useQueryClient()
+  const t = useT(); const nav = useNavigate(); const qc = useQueryClient()
   const q = useQuery({ queryKey: ['cutting-list', id], queryFn: async () => (await api.get<CuttingList>(`/cutting-lists/${id}/`)).data })
   const run = useQuery({ queryKey: ['cutting-run', id, q.data?.latest_run?.id], enabled: !!q.data?.latest_run, placeholderData: keepPreviousData, queryFn: async () => (await api.get<OptRun[]>(`/cutting-lists/${id}/runs/`)).data[0] })
   const [name, setName] = useState(''); const [parts, setParts] = useState<CuttingPart[]>([]); const [sheet, setSheet] = useState({ sheet_length: 2800, sheet_width: 2070, kerf: 3, trim: 10 }); const [rot, setRot] = useState(true); const [del, setDel] = useState(false); const [dirty, setDirty] = useState(false)
   useEffect(() => { const l = q.data; if (l) { setName(l.name); setParts(l.parts); setSheet({ sheet_length: l.sheet_length, sheet_width: l.sheet_width, kerf: Number(l.kerf), trim: Number(l.trim) }); setDirty(false) } }, [q.data])
   const inval = () => { qc.invalidateQueries({ queryKey: ['cutting-list', id] }); qc.invalidateQueries({ queryKey: ['cutting-lists'] }) }
   const save = useMutation({ mutationFn: () => api.patch(`/cutting-lists/${id}/`, { name: name.trim(), ...sheet, parts: parts.map(({ id: _i, ...p }) => ({ ...p, width: Number(p.width), height: Number(p.height), thickness: Number(p.thickness) })) }),
-    onSuccess: () => { toast.success('Cutting list saved'); inval() }, onError: (e) => toast.error(apiError(e).message) })
+    onSuccess: () => { toast.success(t('cl.saved')); inval() }, onError: (e) => toast.error(apiError(e).message) })
   const optimize = useMutation({ mutationFn: async () => { if (dirty) await save.mutateAsync(); return (await api.post<OptRun>(`/cutting-lists/${id}/optimize/`, { allow_rotation: rot })).data },
-    onSuccess: () => { toast.success('Optimization complete'); inval(); qc.invalidateQueries({ queryKey: ['cutting-run', id] }) }, onError: (e) => toast.error(apiError(e).message) })
-  const remove = useMutation({ mutationFn: () => api.delete(`/cutting-lists/${id}/`), onSuccess: () => { qc.invalidateQueries({ queryKey: ['cutting-lists'] }); toast.success('Deleted'); nav('/app/cutting-lists') } })
+    onSuccess: () => { toast.success(t('cl.optDone')); inval(); qc.invalidateQueries({ queryKey: ['cutting-run', id] }) }, onError: (e) => toast.error(apiError(e).message) })
+  const remove = useMutation({ mutationFn: () => api.delete(`/cutting-lists/${id}/`), onSuccess: () => { qc.invalidateQueries({ queryKey: ['cutting-lists'] }); toast.success(t('cl.deleted')); nav('/app/cutting-lists') } })
   const exp = async (k: 'pdf' | 'xlsx') => { try { if (dirty) await save.mutateAsync(); await downloadBlob(`/cutting-lists/${id}/export/${k}/`, `${name || 'cutting-list'}.${k}`) } catch (e) { toast.error(apiError(e).message) } }
   const edit = (i: number, patch: Partial<CuttingPart>) => { setParts(parts.map((p, j) => (j === i ? { ...p, ...patch } : p))); setDirty(true) }
 
   if (q.isLoading) return <div className="p-8"><Skeleton className="h-96" /></div>
-  if (q.isError || !q.data) return <div className="p-8"><ErrorState message="Cutting list not found." /></div>
+  if (q.isError || !q.data) return <div className="p-8"><ErrorState message={t('cl.notfound')} /></div>
   const r = run.data?.result
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-8">
-      <Breadcrumbs items={[{ label: 'Cutting lists', to: '/app/cutting-lists' }, { label: q.data.name }]} />
+      <Breadcrumbs items={[{ label: t('side.cuts'), to: '/app/cutting-lists' }, { label: q.data.name }]} />
       <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-56 flex-1"><Input label="List name" value={name} onChange={(e) => { setName(e.target.value); setDirty(true) }} maxLength={160} /></div>
-        <Button variant="secondary" icon={<Save size={16} />} loading={save.isPending} disabled={!dirty} onClick={() => save.mutate()}>Save</Button>
+        <div className="min-w-56 flex-1"><Input label={t('cl.name')} value={name} onChange={(e) => { setName(e.target.value); setDirty(true) }} maxLength={160} /></div>
+        <Button variant="secondary" icon={<Save size={16} />} loading={save.isPending} disabled={!dirty} onClick={() => save.mutate()}>{t('common.save')}</Button>
         <Button variant="secondary" icon={<FileText size={16} />} onClick={() => exp('pdf')}>PDF</Button>
         <Button variant="secondary" icon={<FileSpreadsheet size={16} />} onClick={() => exp('xlsx')}>Excel</Button>
-        <Button variant="danger" icon={<Trash2 size={16} />} aria-label="Delete list" onClick={() => setDel(true)} />
+        <Button variant="danger" icon={<Trash2 size={16} />} aria-label={t('common.delete')} onClick={() => setDel(true)} />
       </div>
       <Card className="overflow-x-auto">
-        <table className="w-full min-w-[46rem] text-sm"><thead><tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">{['Part', 'Width', 'Height', 'Thick.', 'Qty', 'Material', 'Rotate', ''].map((h) => <th key={h} className="px-3 py-2.5 font-medium">{h}</th>)}</tr></thead>
+        <table className="w-full min-w-[46rem] text-sm"><thead><tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">{[t('f.part'), t('f.width'), t('f.height'), t('f.thick'), t('f.qty'), t('f.material'), t('cl.rotate'), ''].map((h) => <th key={h} className="px-3 py-2.5 font-medium">{h}</th>)}</tr></thead>
           <tbody>{parts.map((p, i) => (
             <tr key={i} className="border-b border-line/60 last:border-0">
               <td className="px-3 py-1.5"><input aria-label="Part name" value={p.name} onChange={(e) => edit(i, { name: e.target.value })} className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 hover:border-line focus:border-primary" /></td>
@@ -94,21 +95,21 @@ function Detail({ id }: { id: string }) {
               <td className="px-3 py-1.5"><input aria-label="Material" value={p.material} onChange={(e) => edit(i, { material: e.target.value.toUpperCase() })} className="h-9 w-24 rounded-md border border-transparent bg-transparent px-2 hover:border-line focus:border-primary" /></td>
               <td className="px-3 py-1.5"><input type="checkbox" aria-label="Allow rotation" checked={p.can_rotate} onChange={(e) => edit(i, { can_rotate: e.target.checked })} /></td>
               <td className="px-3 py-1.5 text-right"><button aria-label="Remove part" onClick={() => { setParts(parts.filter((_, j) => j !== i)); setDirty(true) }} className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger"><Trash2 size={15} /></button></td></tr>))}</tbody></table>
-        <div className="border-t border-line p-3"><Button size="sm" variant="ghost" icon={<Plus size={14} />} onClick={() => { setParts([...parts, { name: 'New part', width: 300, height: 600, thickness: 18, quantity: 1, material: 'MDF', can_rotate: false, edge_w: 0, edge_h: 0, edge_note: '' }]); setDirty(true) }}>Add part</Button></div>
+        <div className="border-t border-line p-3"><Button size="sm" variant="ghost" icon={<Plus size={14} />} onClick={() => { setParts([...parts, { name: 'New part', width: 300, height: 600, thickness: 18, quantity: 1, material: 'MDF', can_rotate: false, edge_w: 0, edge_h: 0, edge_note: '' }]); setDirty(true) }}>{t('cl.addPart')}</Button></div>
       </Card>
-      <Card className="p-4"><h2 className="mb-3 text-sm font-semibold">Sheet settings</h2>
+      <Card className="p-4"><h2 className="mb-3 text-sm font-semibold">{t('cl.sheet')}</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <NumberField label="Length" unit="mm" value={sheet.sheet_length} onChange={(n) => { setSheet({ ...sheet, sheet_length: n }); setDirty(true) }} />
-          <NumberField label="Width" unit="mm" value={sheet.sheet_width} onChange={(n) => { setSheet({ ...sheet, sheet_width: n }); setDirty(true) }} />
-          <NumberField label="Saw kerf" unit="mm" step={0.5} value={sheet.kerf} onChange={(n) => { setSheet({ ...sheet, kerf: n }); setDirty(true) }} />
-          <NumberField label="Edge trim" unit="mm" value={sheet.trim} onChange={(n) => { setSheet({ ...sheet, trim: n }); setDirty(true) }} />
-          <label className="flex items-end gap-2 pb-2 text-sm"><input type="checkbox" checked={rot} onChange={(e) => setRot(e.target.checked)} />Allow rotation</label></div>
-        <p className="mt-2 text-xs text-muted">HDF parts use their own catalogue sheet size. Other materials use these settings unless a catalogue material matches.</p>
-        <Button className="mt-4" icon={<Layers size={16} />} loading={optimize.isPending} disabled={!parts.length} onClick={() => optimize.mutate()}>Optimize layout</Button></Card>
+          <NumberField label={t('cl.length')} unit="mm" value={sheet.sheet_length} onChange={(n) => { setSheet({ ...sheet, sheet_length: n }); setDirty(true) }} />
+          <NumberField label={t('f.width')} unit="mm" value={sheet.sheet_width} onChange={(n) => { setSheet({ ...sheet, sheet_width: n }); setDirty(true) }} />
+          <NumberField label={t('cl.kerf')} unit="mm" step={0.5} value={sheet.kerf} onChange={(n) => { setSheet({ ...sheet, kerf: n }); setDirty(true) }} />
+          <NumberField label={t('cl.trim')} unit="mm" value={sheet.trim} onChange={(n) => { setSheet({ ...sheet, trim: n }); setDirty(true) }} />
+          <label className="flex items-end gap-2 pb-2 text-sm"><input type="checkbox" checked={rot} onChange={(e) => setRot(e.target.checked)} />{t('cl.allowRot')}</label></div>
+        <p className="mt-2 text-xs text-muted">{t('cl.sheetNote')}</p>
+        <Button className="mt-4" icon={<Layers size={16} />} loading={optimize.isPending} disabled={!parts.length} onClick={() => optimize.mutate()}>{t('cl.optimize')}</Button></Card>
       {r && (<section className="space-y-4" aria-live="polite">
-        <h2 className="text-lg font-semibold">Optimization result</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><Stat label="Sheets" value={r.summary.sheet_count} /><Stat label="Utilization" value={`${r.summary.utilization_pct}%`} /><Stat label="Waste" value={`${r.summary.waste_pct}%`} /><Stat label="Est. cost" value={r.summary.estimated_cost != null ? `$${r.summary.estimated_cost}` : 'n/a'} hint={r.summary.estimated_cost == null ? 'No sheet price set' : undefined} /></div>
-        {r.unplaced.length > 0 && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">Parts larger than the sheet were not placed: {r.unplaced.map((u) => `${u.name} (${u.width} x ${u.height})`).join(', ')}.</p>}
+        <h2 className="text-lg font-semibold">{t('cl.result')}</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><Stat label={t('cl.sheets')} value={r.summary.sheet_count} /><Stat label={t('cl.util')} value={`${r.summary.utilization_pct}%`} /><Stat label={t('cl.waste')} value={`${r.summary.waste_pct}%`} /><Stat label={t('cl.cost')} value={r.summary.estimated_cost != null ? `$${r.summary.estimated_cost}` : 'n/a'} hint={r.summary.estimated_cost == null ? t('cl.noPrice') : undefined} /></div>
+        {r.unplaced.length > 0 && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{t('cl.unplaced')}: {r.unplaced.map((u) => `${u.name} (${u.width} x ${u.height})`).join(', ')}.</p>}
         {r.groups.map((g) => (
           <div key={g.key} className="space-y-3 rounded-2xl border border-line bg-sidebar/40 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 text-base font-semibold"><Layers size={17} className="text-primary" />{g.key}</h3>
@@ -116,26 +117,26 @@ function Detail({ id }: { id: string }) {
             {g.result.legend && <ul className="flex flex-wrap gap-2" aria-label="Legend">{g.result.legend.map((l) => <li key={l.name} className="flex items-center gap-2 rounded-full border border-line bg-card px-2.5 py-1 text-xs"><span className="h-3 w-3 rounded" style={{ background: l.color }} />{l.name}<span className="num text-muted">{l.quantity} x {l.width} x {l.height}</span></li>)}</ul>}
             <div className="grid gap-4 lg:grid-cols-2">{g.result.sheets.map((_, i) => <SheetSvg key={i} group={g} idx={i} />)}</div></div>))}
         <p className="text-xs text-muted">{run.data?.result.disclaimer}</p></section>)}
-      <ConfirmDialog open={del} onClose={() => setDel(false)} title="Delete cutting list" message="This permanently deletes the list and its optimization history." loading={remove.isPending} onConfirm={() => remove.mutate()} />
-      <RightPanel><PanelSection title="Totals"><dl className="space-y-2 text-sm">{[['Pieces', q.data.totals.pieces], ['Area', `${q.data.totals.area_m2} m2`], ['Edge banding', `${q.data.totals.edge_banding_m} m`]].map(([k, v]) => <div key={k} className="flex justify-between"><dt className="text-muted">{k}</dt><dd className="num">{v}</dd></div>)}</dl></PanelSection>
-        {r && <PanelSection title="Sheet usage"><Progress value={r.summary.utilization_pct} tone="success" label="Utilization" /><p className="num mt-2 text-xs text-muted">{r.summary.utilization_pct}% of purchased sheet area is used by parts.</p></PanelSection>}
-        <PanelSection title="Notice"><p className="text-xs text-muted">Cutting layouts are guillotine layouts for professional review. Verify grain direction, defects and machine limits before cutting.</p></PanelSection></RightPanel>
+      <ConfirmDialog open={del} onClose={() => setDel(false)} title={t('cl.delTitle')} message={t('cl.delMsg')} loading={remove.isPending} onConfirm={() => remove.mutate()} />
+      <RightPanel><PanelSection title={t('cl.totals')}><dl className="space-y-2 text-sm">{[[t('cl.pieces'), q.data.totals.pieces], [t('calc.area'), `${q.data.totals.area_m2} m2`], [t('calc.edge'), `${q.data.totals.edge_banding_m} m`]].map(([k, v]) => <div key={k} className="flex justify-between"><dt className="text-muted">{k}</dt><dd className="num">{v}</dd></div>)}</dl></PanelSection>
+        {r && <PanelSection title={t('cl.usage')}><Progress value={r.summary.utilization_pct} tone="success" label="Utilization" /><p className="num mt-2 text-xs text-muted">{r.summary.utilization_pct}% of purchased sheet area is used by parts.</p></PanelSection>}
+        <PanelSection title={t('cl.notice')}><p className="text-xs text-muted">{t('cl.noticeText')}</p></PanelSection></RightPanel>
     </div>
   )
 }
 
 function ListView() {
-  const nav = useNavigate(); const qc = useQueryClient()
+  const t = useT(); const nav = useNavigate(); const qc = useQueryClient()
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['cutting-lists'], queryFn: async () => (await api.get<Page<CuttingList>>('/cutting-lists/')).data })
   const blank = useMutation({ mutationFn: async () => (await api.post<CuttingList>('/cutting-lists/', { name: 'Untitled cutting list', parts: [] })).data, onSuccess: (l) => { qc.invalidateQueries({ queryKey: ['cutting-lists'] }); nav(`/app/cutting-lists/${l.id}`) }, onError: (e) => toast.error(apiError(e).message) })
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">Cutting lists</h1>
-        <div className="flex gap-2"><Link to="/app/calculator"><Button variant="secondary" icon={<Calculator size={16} />}>From calculator</Button></Link><Button icon={<Plus size={16} />} loading={blank.isPending} onClick={() => blank.mutate()}>Blank list</Button></div></div>
-      <div className="mt-6">{isLoading ? <div className="grid gap-3 sm:grid-cols-2">{[0, 1].map((i) => <Skeleton key={i} className="h-28" />)}</div> : isError ? <ErrorState message="Could not load cutting lists." onRetry={refetch} />
+      <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">{t('side.cuts')}</h1>
+        <div className="flex gap-2"><Link to="/app/calculator"><Button variant="secondary" icon={<Calculator size={16} />}>{t('cl.fromCalc')}</Button></Link><Button icon={<Plus size={16} />} loading={blank.isPending} onClick={() => blank.mutate()}>{t('cl.blank')}</Button></div></div>
+      <div className="mt-6">{isLoading ? <div className="grid gap-3 sm:grid-cols-2">{[0, 1].map((i) => <Skeleton key={i} className="h-28" />)}</div> : isError ? <ErrorState message={t('cl.loadErr')} onRetry={refetch} />
         : data?.results.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{data.results.map((l) => <HoverCard key={l.id} as="button" onClick={() => nav(`/app/cutting-lists/${l.id}`)} className="p-4"><p className="font-medium">{l.name}</p>
-          <p className="num mt-1 text-xs text-muted">{l.totals.pieces} pieces · {l.totals.area_m2} m2</p><p className="mt-1 text-xs text-muted">{l.latest_run ? `${l.latest_run.sheet_count} sheets · ${l.latest_run.utilization_pct}% used` : 'Not optimized yet'} · {fmtAgo(l.updated_at)}</p></HoverCard>)}</div>
-          : <EmptyState icon={<Scissors size={22} />} title="No cutting lists yet" text="Generate one from a cabinet calculation or start with a blank list." action={<Link to="/app/calculator"><Button>Open calculator</Button></Link>} />}</div>
+          <p className="num mt-1 text-xs text-muted">{l.totals.pieces} {t('cl.pieces').toLowerCase()} · {l.totals.area_m2} m2</p><p className="mt-1 text-xs text-muted">{l.latest_run ? `${l.latest_run.sheet_count} ${t('cl.sheets').toLowerCase()} · ${l.latest_run.utilization_pct}%` : t('cl.notOpt')} · {fmtAgo(l.updated_at)}</p></HoverCard>)}</div>
+          : <EmptyState icon={<Scissors size={22} />} title={t('cl.empty')} text={t('cl.emptyText')} action={<Link to="/app/calculator"><Button>{t('cl.openCalc')}</Button></Link>} />}</div>
     </div>
   )
 }

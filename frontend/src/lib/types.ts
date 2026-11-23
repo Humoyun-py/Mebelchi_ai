@@ -22,6 +22,7 @@ export interface CalcPart {
 export interface CalcResult {
   input: CabinetInput; parts: CalcPart[]; warnings: string[]; assumptions: string[]; disclaimer: string; saved_id?: number
   requires_professional_review: boolean
+  hardware?: { name: string; quantity: number; note: string }[]
   summary: { panel_count: number; distinct_parts: number; total_area_m2: number; edge_banding_m: number; waste_factor_assumed: number
     by_material: Record<string, { material: string; thickness: number; area_m2: number; parts: number; estimated_area_with_waste_m2: number }> }
 }

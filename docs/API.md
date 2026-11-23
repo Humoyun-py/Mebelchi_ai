@@ -57,7 +57,7 @@ curl -X POST /api/v1/calculations/material/ -H "Authorization: Bearer $T" -H 'Co
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `calculations/material/` | body: `width,height,depth,thickness=18,shelves=0,doors=0,drawers=0,back_thickness=4,material,back_material`; optional `save, name, project`. Returns `parts[], summary, warnings[], assumptions[], requires_professional_review` |
+| POST | `calculations/material/` | body: `width,height,depth,thickness=18,shelves=0,doors=0,drawers=0,back_thickness=4,material,back_material`; optional `save, name, project`. Returns `parts[], summary, hardware[], warnings[], assumptions[], requires_professional_review` |
 | GET/DELETE | `calculations/`, `calculations/{id}/` | saved results |
 | CRUD | `cutting-lists/` | `parts[]` are replaced as a whole on update |
 | POST | `cutting-lists/from-calculation/` | cabinet fields + `name, project, sheet_length, sheet_width` |
