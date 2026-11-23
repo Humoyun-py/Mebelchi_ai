@@ -1,6 +1,8 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
+from apps.workshops.admin_views import WorkshopAdminViewSet
+
 from . import admin_views as v
 
 router = SimpleRouter()
@@ -10,6 +12,7 @@ router.register("subscriptions", v.SubscriptionAdminViewSet, basename="admin-sub
 router.register("payments", v.PaymentAdminViewSet, basename="admin-payment")
 router.register("logs", v.LogAdminViewSet, basename="admin-log")
 router.register("features", v.FeatureAdminViewSet, basename="admin-feature")
+router.register("workshops", WorkshopAdminViewSet, basename="admin-workshop")
 urlpatterns = [path("stats/", v.StatsView.as_view()), path("broadcast/", v.BroadcastView.as_view()),
                path("storage/", v.StorageAdminView.as_view()),
                path("system/", v.SystemStatusView.as_view())] + router.urls

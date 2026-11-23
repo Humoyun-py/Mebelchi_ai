@@ -61,6 +61,8 @@ INSTALLED_APPS = [
     "apps.galleries",
     "apps.files",
     "apps.integrations",
+    "apps.audit",
+    "apps.workshops",
     "apps.subscriptions",
     "apps.notifications",
     "apps.analytics",

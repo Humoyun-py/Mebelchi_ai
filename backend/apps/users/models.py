@@ -30,6 +30,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
         MAKER = "maker", "Furniture Maker"
         HOMEOWNER = "homeowner", "Home Owner"
+        # Workshops are onboarded and approved by an administrator; users cannot pick this role themselves.
+        WORKSHOP = "workshop", "Furniture Workshop"
+
+    SELF_SELECTABLE_ROLES = (Role.MAKER, Role.HOMEOWNER)
 
     class Theme(models.TextChoices):
         DARK = "dark", "Dark"
