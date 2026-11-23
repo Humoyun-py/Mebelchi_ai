@@ -22,6 +22,7 @@ api = [
     path("subscriptions/", include("apps.subscriptions.urls")),
     path("", include("apps.notifications.urls")),
     path("analytics/", include("apps.analytics.urls")),
+    path("telegram/", include("apps.integrations.urls")),
     path("admin-api/", include("apps.analytics.admin_urls")),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),

@@ -7,7 +7,21 @@ from rest_framework.exceptions import ValidationError
 from apps.materials.models import Material
 
 from . import optimizer
-from .models import CuttingList, OptimizationRun
+from .models import CuttingList, CuttingPart, OptimizationRun
+
+
+def create_from_calculation(owner, calc: dict, *, project=None, name: str | None = None,
+                            sheet_length: int = 2800, sheet_width: int = 2070) -> CuttingList:
+    """Create a cutting list and its parts from an engine.calculate() result. Used by the web app and the Telegram bot."""
+    cl = CuttingList.objects.create(owner=owner, project=project, name=name or "Cabinet cutting list",
+                                    sheet_length=sheet_length, sheet_width=sheet_width, source_inputs=calc["input"])
+    CuttingPart.objects.bulk_create([
+        CuttingPart(cutting_list=cl, name=p["name"], width=p["width"], height=p["height"], thickness=p["thickness"],
+                    quantity=p["quantity"], material=p["material"], can_rotate=p["can_rotate"],
+                    edge_w=p["edge_w"], edge_h=p["edge_h"], edge_note=p["edge_note"])
+        for p in calc["parts"]
+    ])
+    return cl
 
 
 def sheet_for(cl: CuttingList, material: str, thickness: float):
