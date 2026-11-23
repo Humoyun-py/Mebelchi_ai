@@ -1,6 +1,6 @@
 # MEBELCHI AI: Roadmap v2 (customer journey, workshops, orders)
 
-Status: planned, not started. Start only after the open questions below are answered.
+Status: decisions recorded (see "Decisions"). Phase 0 is in progress on feat/foundation-roles-audit.
 
 ## Ground rules
 - No external AI APIs. Chat is a rule-based state machine.
@@ -11,13 +11,21 @@ Status: planned, not started. Start only after the open questions below are answ
 
 ## Real constraints (decided, not negotiable)
 - Telegram bots can message a user only after that user has pressed /start. Phone numbers and usernames cannot be used for bot messages. Use a deep link: t.me/<bot>?start=<token>.
-- A downloaded GLB can be opened by any 3D viewer. "Opens only in MEBELCHI" is enforced with an encrypted .mbl format and an account-bound license, not by blocking GLB.
+- A downloaded GLB can be opened by any 3D viewer. Blocking it is impossible.
+- The .mbl format is NOT real protection. The web viewer needs the key in the browser, so an account holder can extract it. .mbl is a license and privacy layer (account-bound license, visible to the user), not DRM. The UI must say so.
 - v1 does not analyse room photos (that needs computer vision). Photos are stored as reference; dimensions are entered manually.
 - There is no payment gateway yet. Click/Payme (or another) needs a contract and legal review.
+- Escrow (holding the customer's money until delivery) may require a license in some jurisdictions. Legal review is required before Phase 6. This plan does not replace legal advice.
+- The contract text is a template and must pass legal review before use.
 
 ## Roles
-home_owner (customer), furniture_maker (master), workshop (new: furniture workshop), admin, super_admin.
+Stored values in the codebase: maker (furniture master), homeowner (customer), workshop (new), plus admin via is_staff and is_superuser.
+The names home_owner and furniture_maker in older drafts are the same concepts; the code keeps maker and homeowner.
+Users cannot self-assign the workshop role. An administrator assigns it, and every change is audited.
 A workshop becomes active only after onboarding and admin approval.
+
+## Data model decision: one Workshop model
+Individual masters and workshops share one model: Workshop with kind = individual | workshop. Both use the same order flow, so two models would duplicate code.
 
 ## Phase 1: Customer chat (web and bot share one state machine)
 1. Goal: kitchen, bedroom, living room, wardrobe, office.
@@ -76,6 +84,21 @@ A workshop becomes active only after onboarding and admin approval.
 - Bot: unit tests and an end-to-end run against a live backend on a separate port.
 - Ledger test: 1000 USD order gives exactly 200 and 800.
 - Each phase: its own branch, commit, and a report with real test results.
+
+## Decisions
+Recorded from the product owner's review. Items marked "recommendation" were accepted as proposed.
+1. Commission base: product price after discounts, excluding delivery. On partial refund, commission is refunded proportionally. (Accepted.)
+2. "More than 50 workshops": the platform offers up to 3 options built from budget, city, lead time and capacity. The customer chooses. Ratings need a review model, which is a later phase. (Accepted.)
+3. Prices: entered by administrators and approved workshops. CSV import is admin-only. (Accepted.)
+4. .mbl: opened only by the MEBELCHI viewer, with the license and privacy limits above. (Accepted.)
+5. Room photo analysis with ML: postponed. Photos are stored only. (Accepted.)
+6. Payment provider and legal entity: OPEN. Build the adapter and sandbox first; the real provider is chosen later. Phase 6 needs this answer before production.
+7. One Workshop model with kind field. (Accepted.)
+8. Work starts from origin/main. Existing feature branches are merged in main already. (Accepted.)
+
+Ledger amounts: integers in minor units. Commission basis points (2000 = 20%), commission = (amount * bp + 5000) // 10000 (half-up), workshop share = amount - commission, so totals never drift. Ledger entries are append-only with an idempotency key per entry.
+
+Order states: draft, sent, accepted_by_workshop, paid, in_production, delivered, completed, cancelled, disputed. Allowed transitions and the role allowed for each are kept in one place and tested.
 
 ## Open questions (answer before Phase 1)
 1. Which payment provider (Click, Payme, other)? Is there a legal entity and a contract template?
