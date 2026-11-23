@@ -24,3 +24,10 @@ class CalcStates(StatesGroup):
 
 class BroadcastStates(StatesGroup):
     text = State()
+
+
+class RoomStates(StatesGroup):
+    """The room flow itself lives on the server. These states only say what kind of message the bot waits for."""
+
+    photo = State()    # a room photo
+    number = State()   # a typed number: a form field or an opening's offset/width. data['mode'] is 'group' or 'opening'

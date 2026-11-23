@@ -103,3 +103,34 @@ class BackendClient:
 
     async def admin_broadcast(self, telegram_id: int, text: str) -> None:
         await self._call("POST", "/telegram/bot/admin/broadcast/", json={"telegram_id": telegram_id, "text": text})
+
+    # ----- room design flow (state lives on the server; the bot only renders it) ---------------------------------
+    async def room_start(self, telegram_id: int, new: bool = False) -> tuple[dict, bool]:
+        """Resume the active flow or start one. Returns (flow, created)."""
+        r = await self._call("POST", "/telegram/bot/room-flows/", json={"telegram_id": telegram_id, "new": new})
+        return r.json(), r.status_code == 201
+
+    async def room_get(self, telegram_id: int, flow_id: int) -> dict:
+        return (await self._call("GET", f"/telegram/bot/room-flows/{flow_id}/", params={"telegram_id": telegram_id})).json()
+
+    async def room_answer(self, telegram_id: int, flow_id: int, step: str, value: Any) -> dict:
+        return (await self._call("POST", f"/telegram/bot/room-flows/{flow_id}/answer/", json={"telegram_id": telegram_id, "step": step, "value": value})).json()
+
+    async def room_back(self, telegram_id: int, flow_id: int) -> dict:
+        return (await self._call("POST", f"/telegram/bot/room-flows/{flow_id}/back/", json={"telegram_id": telegram_id})).json()
+
+    async def room_photo(self, telegram_id: int, flow_id: int, filename: str, content: bytes) -> dict:
+        r = await self._call("POST", f"/telegram/bot/room-flows/{flow_id}/photo/", data={"telegram_id": str(telegram_id)}, files={"file": (filename, content)})
+        return r.json()
+
+    async def room_add_item(self, telegram_id: int, flow_id: int, rev: int, **fields: Any) -> dict:
+        r = await self._call("POST", f"/telegram/bot/room-flows/{flow_id}/items/", json={"telegram_id": telegram_id, "rev": rev, **fields})
+        return r.json()
+
+    async def room_update_item(self, telegram_id: int, flow_id: int, item_id: str, rev: int, **fields: Any) -> dict:
+        r = await self._call("PATCH", f"/telegram/bot/room-flows/{flow_id}/items/{item_id}/", json={"telegram_id": telegram_id, "rev": rev, **fields})
+        return r.json()
+
+    async def room_delete_item(self, telegram_id: int, flow_id: int, item_id: str, rev: int) -> dict:
+        r = await self._call("DELETE", f"/telegram/bot/room-flows/{flow_id}/items/{item_id}/", params={"telegram_id": telegram_id, "rev": rev})
+        return r.json()

@@ -206,6 +206,12 @@ TEXTS: dict[str, dict[str, str]] = {
 }
 
 
+from bot.utils.room_texts import ROOM_TEXTS  # noqa: E402 - appended after TEXTS on purpose
+
+for _lang, _texts in ROOM_TEXTS.items():
+    TEXTS[_lang].update(_texts)
+
+
 def language_for(telegram_language_code: str | None) -> str:
     code = (telegram_language_code or "").split("-")[0].lower()
     return code if code in SUPPORTED else DEFAULT_LANG

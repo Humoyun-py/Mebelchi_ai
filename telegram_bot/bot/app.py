@@ -3,7 +3,7 @@ from aiogram import Dispatcher
 from aiogram.fsm.storage.base import BaseStorage
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.handlers import admin, calculator, errors, files, menu, projects, start
+from bot.handlers import admin, calculator, errors, files, menu, projects, room, start
 from bot.middlewares import ServicesMiddleware, ThrottlingMiddleware
 from bot.services.api import BackendClient
 
@@ -31,6 +31,7 @@ def build_dispatcher(*, api: BackendClient, storage: BaseStorage, web_app_url: s
     dp.include_router(menu.router)
     dp.include_router(projects.router)
     dp.include_router(calculator.router)
+    dp.include_router(room.router)   # before files: a photo sent while the room flow waits for one must not become a plain upload
     dp.include_router(files.router)
     dp.include_router(admin.register_admin_handlers(admin_ids))
     return dp
@@ -39,6 +40,7 @@ def build_dispatcher(*, api: BackendClient, storage: BaseStorage, web_app_url: s
 BOT_COMMANDS = [
     ("start", "Menu"),
     ("link", "Link account"),
+    ("room", "Room design"),
     ("projects", "My projects"),
     ("calc", "Material calculator"),
     ("cutting", "Cutting list"),

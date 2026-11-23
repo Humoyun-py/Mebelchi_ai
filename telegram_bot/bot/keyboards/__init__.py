@@ -35,6 +35,7 @@ def main_menu(lang: str, linked: bool) -> InlineKeyboardMarkup:
     rows = [
         [_button(t("btn_profile", lang), "profile"), _button(t("btn_projects", lang), "projects")],
         [_button(t("btn_create", lang), "new_project"), _button(t("btn_calc", lang), "calc")],
+        [_button(t("btn_room", lang), "room")],
         [_button(t("btn_cutting", lang), "cutting"), _button(t("btn_designs", lang), "designs")],
         [_button(t("btn_upload", lang), "upload"), _button(t("btn_notifications", lang), "notifications")],
         [_button(t("btn_help", lang), "help"), InlineKeyboardButton(text=t("btn_web", lang), callback_data=Nav(to="web").pack())],
