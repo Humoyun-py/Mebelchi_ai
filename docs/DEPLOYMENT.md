@@ -53,3 +53,27 @@ git pull && docker compose up -d --build   # migrations run automatically on bac
 - Server errors (5xx) are stored in `SystemLog` and shown in Administration → Logs. Add an external monitor for uptime.
 - Payments: no gateway is integrated. Confirm incoming payments in Administration → Billing to activate plans.
 - Security checks: `docker compose exec backend python manage.py check --deploy`.
+
+## 8. Database selection and SQLite fallback
+
+Selection happens once per process at start (`backend/config/database.py`):
+
+1. `DB_ENGINE=postgresql` (default when `POSTGRES_DB` is set) connects to PostgreSQL with a 3-second timeout.
+2. If PostgreSQL is reachable, it is used. The active engine is logged at startup and shown in the admin system status (`GET /api/v1/admin-api/system/`).
+3. If it is unreachable and `DATABASE_FALLBACK_ENABLED=true`, Django uses SQLite at `SQLITE_PATH`. A WARNING is logged on every start.
+4. If it is unreachable and fallback is disabled (the production default), the process refuses to start with a message that names the reason. Nothing is switched silently.
+5. Data is never copied or merged between the two databases. A process that ran on SQLite writes its rows to SQLite only. Moving them requires a deliberate export and import (below).
+
+Operational rules:
+
+- Keep `DATABASE_FALLBACK_ENABLED=false` in production. Turn it on only as a deliberate, announced decision.
+- If the system ran on the fallback, stop the service, restore PostgreSQL, and decide what to do with the SQLite rows before restarting.
+- Run the test suite on both engines before each release:
+
+```bash
+cd backend
+POSTGRES_DB=mebelchi_db POSTGRES_USER=mebelchi_user POSTGRES_PASSWORD=... POSTGRES_HOST=localhost python manage.py test apps
+env -u POSTGRES_DB python manage.py test apps        # SQLite
+```
+
+Migrations are the same for both engines: `python manage.py migrate`. Back up SQLite with `sqlite3 db.sqlite3 ".backup backup.sqlite3"` (safe while the server runs); back up PostgreSQL with `deploy/backup.sh`.

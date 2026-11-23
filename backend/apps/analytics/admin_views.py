@@ -194,3 +194,57 @@ class StorageAdminView(AdminBase, APIView):
         from apps.galleries.models import GalleryImage
         rows = (GalleryImage.objects.values("owner__email").annotate(bytes=Sum("size_bytes"), images=Count("id")).order_by("-bytes")[:20])
         return Response([{"email": r["owner__email"], "image_bytes": r["bytes"] or 0, "images": r["images"]} for r in rows])
+
+
+def _check_redis():
+    from django.conf import settings
+    url = getattr(settings, "CELERY_BROKER_URL", "")
+    if not url.startswith("redis"):
+        return {"status": "not_configured", "detail": "REDIS_URL is empty; cache and Celery run in-process"}
+    try:
+        import redis
+        redis.Redis.from_url(url, socket_connect_timeout=2, socket_timeout=2).ping()
+        return {"status": "ok"}
+    except Exception as exc:  # noqa: BLE001 - status endpoint must never crash
+        return {"status": "error", "detail": exc.__class__.__name__}
+
+
+def _check_celery():
+    from django.conf import settings
+    if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+        return {"status": "eager", "detail": "Tasks run in-process (no worker)"}
+    try:
+        from config.celery import app
+        replies = app.control.ping(timeout=1.0)
+        return {"status": "ok" if replies else "no_workers", "workers": len(replies)}
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "error", "detail": exc.__class__.__name__}
+
+
+def _check_database():
+    from django.conf import settings
+    from django.db import connection
+    status = dict(settings.DATABASE_STATUS.as_dict())
+    try:
+        connection.ensure_connection()
+        status["connected"] = True
+        status["vendor"] = connection.vendor
+    except Exception as exc:  # noqa: BLE001
+        status["connected"] = False
+        status["vendor"] = connection.vendor
+        status["detail"] = exc.__class__.__name__
+    return status
+
+
+class SystemStatusView(AdminBase, APIView):
+    """Operational status for the admin panel. Never includes secrets or connection strings."""
+
+    @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
+    def get(self, request):
+        return Response({
+            "backend": {"status": "ok"},
+            "database": _check_database(),
+            "redis": _check_redis(),
+            "celery": _check_celery(),
+            "telegram_bot": {"status": "not_configured"},
+        })

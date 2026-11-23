@@ -11,4 +11,5 @@ router.register("payments", v.PaymentAdminViewSet, basename="admin-payment")
 router.register("logs", v.LogAdminViewSet, basename="admin-log")
 router.register("features", v.FeatureAdminViewSet, basename="admin-feature")
 urlpatterns = [path("stats/", v.StatsView.as_view()), path("broadcast/", v.BroadcastView.as_view()),
-               path("storage/", v.StorageAdminView.as_view())] + router.urls
+               path("storage/", v.StorageAdminView.as_view()),
+               path("system/", v.SystemStatusView.as_view())] + router.urls
