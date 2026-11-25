@@ -48,6 +48,19 @@ export function NumberField({ label, value, onChange, unit, min, max, step = 1, 
   )
 }
 
+/** Date / date-time input with the label above (native pickers do not work with floating labels). */
+export function DateField({ label, value, onChange, error, time = false, min, disabled }: { label: string; value: string; onChange: (v: string) => void; error?: string; time?: boolean; min?: string; disabled?: boolean }) {
+  const id = useId()
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-muted">{label}</label>
+      <input id={id} type={time ? 'datetime-local' : 'date'} value={value} min={min} disabled={disabled} onChange={(e) => onChange(e.target.value)} aria-invalid={!!error}
+        className={clsx('num h-9 w-full rounded-lg border bg-card2 px-3 text-sm text-fg outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 disabled:opacity-60', error ? 'border-danger' : 'border-line')} />
+      {error && <p role="alert" className="mt-1 text-xs text-danger">{error}</p>}
+    </div>
+  )
+}
+
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string }>(({ label, error, className, ...rest }, ref) => {
   const id = useId()
   return (

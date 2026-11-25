@@ -21,6 +21,8 @@ const Gallery = lazy(() => import('./pages/app/Gallery'))
 const Files = lazy(() => import('./pages/app/Files'))
 const Designs = lazy(() => import('./pages/app/Designs'))
 const SettingsPage = lazy(() => import('./pages/app/Settings'))
+const Workshops = lazy(() => import('./pages/app/Workshops'))
+const WorkshopDetail = lazy(() => import('./pages/app/WorkshopDetail'))
 const Admin = lazy(() => import('./pages/admin/Admin'))
 
 function Protected({ children, admin }: { children: ReactNode; admin?: boolean }) {
@@ -67,6 +69,8 @@ export default function App() {
           <Route path="gallery" element={<L><Gallery /></L>} />
           <Route path="files" element={<L><Files /></L>} />
           <Route path="designs" element={<L><Designs /></L>} />
+          <Route path="workshops" element={<L><Workshops /></L>} />
+          <Route path="workshops/:id" element={<L><WorkshopDetail /></L>} />
           <Route path="settings" element={<L><SettingsPage /></L>} />
           <Route path="admin" element={<Protected admin><L><Admin /></L></Protected>} />
         </Route>

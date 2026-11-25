@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, Box, Calculator, ChevronsLeft, ChevronsRight, FileText, FolderClosed, FolderPlus, Image as ImageIcon, LayoutDashboard, LogOut, Menu, MessageSquare,
-  Moon, PanelRight, Pin, Plus, Ruler, Scissors, Search, Settings, ShieldCheck, Sofa, Sun, Layers, User as UserIcon, X } from 'lucide-react'
+  Building2, Moon, PanelRight, Pin, Plus, Ruler, Scissors, Search, Settings, ShieldCheck, Sofa, Sun, Layers, User as UserIcon, X } from 'lucide-react'
 import clsx from 'clsx'
 import { api, apiError } from '../lib/api'
 import { useL, useT } from '../lib/i18n'
@@ -89,6 +89,7 @@ function SidebarBody({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
         <NavItem to="/app" end icon={<LayoutDashboard size={18} />} label={t('side.dashboard')} collapsed={collapsed} />
         <NavItem to="/app/assistant" icon={<MessageSquare size={18} />} label={t('side.chat')} collapsed={collapsed} />
         <NavItem to="/app/projects" icon={<Layers size={18} />} label={t('side.projects')} collapsed={collapsed} />
+        <NavItem to="/app/workshops" icon={<Building2 size={18} />} label={t('side.workshops')} collapsed={collapsed} />
         {sec(maker ? t('side.workshop') : t('side.design'))}
         {maker ? (<>
           <NavItem to="/app/calculator" icon={<Calculator size={18} />} label={t('side.calc')} collapsed={collapsed} />

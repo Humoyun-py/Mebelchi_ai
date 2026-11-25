@@ -4,7 +4,7 @@ export function LogoMark({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
       <rect width="32" height="32" rx="8" fill="var(--primary)" />
-      <path d="M8 24V8h16v16M8 16h16M16 8v16" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M8 24V8h16v16M8 16h16M16 8v16" fill="none" stroke="var(--on-primary)" strokeWidth="2" strokeLinejoin="round" />
     </svg>
   )
 }

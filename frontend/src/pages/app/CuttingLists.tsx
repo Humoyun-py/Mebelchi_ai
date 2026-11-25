@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Calculator, FileSpreadsheet, FileText, Layers, Plus, Save, Scissors, Trash2 } from 'lucide-react'
+import { Calculator, FileSpreadsheet, FileText, Layers, Plus, Save, Scissors, ShieldCheck, Trash2 } from 'lucide-react'
 import { api, apiError, downloadBlob } from '../../lib/api'
 import { fmtAgo } from '../../lib/format'
 import type { CuttingList, CuttingPart, OptGroup, OptRun, Page } from '../../lib/types'
@@ -109,6 +109,10 @@ function Detail({ id }: { id: string }) {
       {r && (<section className="space-y-4" aria-live="polite">
         <h2 className="text-lg font-semibold">{t('cl.result')}</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><Stat label={t('cl.sheets')} value={r.summary.sheet_count} /><Stat label={t('cl.util')} value={`${r.summary.utilization_pct}%`} /><Stat label={t('cl.waste')} value={`${r.summary.waste_pct}%`} /><Stat label={t('cl.cost')} value={r.summary.estimated_cost != null ? `$${r.summary.estimated_cost}` : 'n/a'} hint={r.summary.estimated_cost == null ? t('cl.noPrice') : undefined} /></div>
+        {(r.validation || r.approximate) && <div role="note" className="flex flex-wrap items-center gap-2 text-xs">
+          {r.validation?.valid && <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 font-medium text-success"><ShieldCheck size={13} />{t('cl.verified')}</span>}
+          {r.approximate && <span className="inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 font-medium text-warning">{t('cl.approx')}</span>}
+          {r.approximate && <span className="text-muted">{t('cl.approxNote')}</span>}</div>}
         {r.unplaced.length > 0 && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{t('cl.unplaced')}: {r.unplaced.map((u) => `${u.name} (${u.width} x ${u.height})`).join(', ')}.</p>}
         {r.groups.map((g) => (
           <div key={g.key} className="space-y-3 rounded-2xl border border-line bg-sidebar/40 p-4">

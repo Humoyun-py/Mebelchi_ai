@@ -38,9 +38,9 @@ function Dim({ a, b, label, offset, unit }: { a: [number, number, number]; b: [n
   const mid: [number, number, number] = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2, (p1[2] + p2[2]) / 2]
   return (
     <group>
-      <Line points={[p1, p2]} color="#60a5fa" lineWidth={1.5} />
-      <Line points={[a, p1]} color="#60a5fa" lineWidth={0.6} transparent opacity={0.5} />
-      <Line points={[b, p2]} color="#60a5fa" lineWidth={0.6} transparent opacity={0.5} />
+      <Line points={[p1, p2]} color="#22d3ee" lineWidth={1.5} />
+      <Line points={[a, p1]} color="#22d3ee" lineWidth={0.6} transparent opacity={0.5} />
+      <Line points={[b, p2]} color="#22d3ee" lineWidth={0.6} transparent opacity={0.5} />
       <Label3D position={mid} text={label} unit={unit} />
     </group>
   )
