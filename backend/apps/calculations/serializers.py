@@ -39,6 +39,7 @@ class CabinetFieldsSerializer(serializers.Serializer):
     track_top = serializers.FloatField(default=35, help_text="sliding_wardrobe only")
     track_bottom = serializers.FloatField(default=20, help_text="sliding_wardrobe only")
     rail_width = serializers.FloatField(default=100, help_text="kitchen_base top rails / kitchen_wall hanging rail")
+    handle_style = serializers.ChoiceField(choices=engine.HANDLE_STYLES, default="bar", help_text="bar | knob | none (none removes handles from the hardware list)")
 
 
 ENGINE_KEYS = tuple(CabinetFieldsSerializer().fields)

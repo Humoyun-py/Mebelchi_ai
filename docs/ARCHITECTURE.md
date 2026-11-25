@@ -167,6 +167,14 @@ lacks a key present in `en`.
 - **Brand**: design tokens in `index.css` use Deep Navy `#0F172A`, Cyan `#22D3EE` and white (dark theme); the light theme uses a darker cyan so text keeps WCAG AA contrast. `lib/brand.test.ts` checks the contrast ratios.
 - **i18n**: English, Uzbek (Latin) and Russian; `i18n.parity.test.ts` and `i18n.coverage.test.ts` fail on missing keys or placeholders. Uzbek/Russian strings for the new screens should be reviewed by a native speaker.
 
+## 3D editor (Phase 5)
+
+- **One document**: `lib/editor.ts` holds the whole editable state (name, calculator input incl. cabinet type and handle style, colour groups, board, project). `toConfig/fromConfig` convert to and from the saved `Design.config` (schema_version 1, tolerant of older designs); `snapshot` powers the *Unsaved changes* indicator and the `beforeunload` warning.
+- **Server is the source of truth for geometry**: every edit goes to `geometry/preview/` (debounced) and the viewer draws exactly the returned boxes; the response carries `consistency`, the server's proof that the model equals the calculation. No dimensions are computed in the browser.
+- **Views** (`lib/editor3d.ts`, `components/three/CabinetViewer.tsx`): perspective plus front, side and top. Axis views use a 6 degree field of view (practically orthographic) with the camera distance computed so the whole cabinet fits any screen shape. Verified in real Chrome by measuring the cabinet's width/height ratio in screenshots: front 0.398 (real 0.400), side 0.205 (0.200), top 1.897 (2.000; the remainder is the door thickness and handles that stand proud of the carcass).
+- **Picking**: clicking a part selects it (highlighted, properties and its colour group in the panel); the same list is available as buttons for keyboard users. Edge outline lines are excluded from raycasting because three.js' default line threshold is 1 unit (1 m in this scene), which made every click hit the nearest outline.
+- **Layout**: three columns on wide screens (library, 3D workspace, controls); on phones the 3D view comes first, then controls, then the library.
+
 ## Phases
 
 1. Foundation — backend skeleton, users/auth/roles, design system, landing

@@ -37,11 +37,13 @@ SLIDE_CLEARANCE = 13  # per side, for ball-bearing drawer slides
 DRAWER_BOX_T = 16
 DRAWER_DEPTH_LOSS = 50
 MIN_DRAWER_FRONT = 80
+MIN_SHELF_GAP = 30     # clear opening between two shelves (or a shelf and a panel)
 MIN_DOOR_WIDTH = 100
 DRAWER_FRONT_GAP = 3
 STD_WASTE_FACTOR = 0.15  # used only for the quick area-based sheet estimate
 SLIDING_FRONT_SETBACK = 20  # front sliding lane face is this far behind the carcass front
 SLIDING_LANE_GAP = 4        # clearance between the two sliding lanes (lane pitch = thickness + gap)
+SLIDING_SHELF_CLEARANCE = 5  # shelves stop this far behind the rear sliding lane
 SLIDING_MAX_PANEL_W = 1200  # advisory limit used for a warning only
 SLIDING_MAX_PANEL_H = 2700
 WALL_MAX_DEPTH = 400        # advisory limit used for a warning only
@@ -171,6 +173,13 @@ def layout(inp: CabinetInput) -> dict:
             "door_w": door_w, "door_h": door_h, "door_y": door_y, "body_h": body_h, "base_y": base_y}
 
 
+def shelf_depth(inp: CabinetInput) -> float:
+    """Depth of a shelf. Normally 20 mm less than the carcass; behind sliding doors it must also clear both door lanes."""
+    if inp.cabinet_type == "sliding_wardrobe":
+        return inp.depth - SLIDING_FRONT_SETBACK - 2 * inp.thickness - SLIDING_LANE_GAP - SLIDING_SHELF_CLEARANCE
+    return inp.depth - SHELF_SETBACK
+
+
 def _shelf_hits_hanging_rail(inp: CabinetInput, lay: dict) -> bool:
     """Shelves sit at equal slot boundaries; one collides with the hanging rail when it lies inside the rail's height band."""
     t = inp.thickness
@@ -225,6 +234,14 @@ def validate(inp: CabinetInput) -> list[str]:
         errors["width"] = "too narrow for drawers"
     if sliding and inp.depth < 2 * t + SLIDING_FRONT_SETBACK + 2 * SLIDING_LANE_GAP + 50:
         errors["depth"] = "too shallow for two sliding lanes"
+    if inp.shelves and lay["slot_h"] - t < MIN_SHELF_GAP:
+        errors["shelves"] = f"too many shelves/drawers for this height (the clear opening would be under {MIN_SHELF_GAP} mm)"
+    if inp.cabinet_type == "kitchen_base" and 2 * inp.rail_width > inp.depth:
+        errors["rail_width"] = "the front and rear top rails would overlap (rail width x 2 is larger than the depth)"
+    if inp.cabinet_type == "kitchen_wall" and inp.rail_width > lay["inner_h"] - 20:
+        errors["rail_width"] = "the hanging rail is taller than the cabinet interior"
+    if sliding and inp.shelves and shelf_depth(inp) < 100:
+        errors["depth"] = "too shallow for shelves behind the sliding doors (shelf depth would be under 100 mm)"
     if sliding and inp.doors >= 3 and lay["door_w"] <= 2 * inp.sliding_overlap:
         # panels k and k+2 share a lane; they would touch or overlap in plan
         errors["sliding_overlap"] = "too large for this number of panels (panels in the same lane would collide)"
@@ -273,7 +290,7 @@ def build_parts(inp: CabinetInput) -> list[Part]:
     if kind == "kitchen_base":
         parts.append(Part("Plinth", W, inp.plinth_height, t, 1, m, edge_w=1, edge_note="top edge (1 x width)", group="fronts"))
     if inp.shelves:
-        parts.append(Part("Shelf", lay["inner_w"], D - SHELF_SETBACK, t, inp.shelves, m, edge_w=1, edge_note="front edge (1 x width)"))
+        parts.append(Part("Shelf", lay["inner_w"], shelf_depth(inp), t, inp.shelves, m, edge_w=1, edge_note="front edge (1 x width)"))
     parts.append(Part("Back panel", W - BACK_CLEARANCE, body_h - BACK_CLEARANCE, inp.back_thickness, 1, inp.back_material,
                       can_rotate=True, edge_note="no edge banding", group="back"))
     if inp.doors:
@@ -361,6 +378,7 @@ TYPE_ASSUMPTIONS = {
         "n x panel width - (n - 1) x overlap = internal width.",
         "Panel height = internal height - top track allowance - bottom track allowance (configured values; they depend on the sliding system).",
         "Panels are the same board as the carcass and are banded on all 4 edges. Track and roller dimensions are system specific and are not modelled.",
+        "Shelves are shallower than in other cabinets so that they clear both sliding lanes: depth - 20 mm front set-back - 2 x thickness - 4 mm lane gap - 5 mm clearance.",
     ],
 }
 EDGE_ASSUMPTION = ("Cut sizes: each banded edge removes one edge-tape thickness from the dimension it closes, so that the finished part "

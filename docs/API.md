@@ -64,9 +64,11 @@ curl -X POST /api/v1/calculations/material/ -H "Authorization: Bearer $T" -H 'Co
 | POST | `cutting-lists/{id}/optimize/` | `{allow_rotation}` → stored run: groups per material+thickness, sheets with placements, utilization, waste, leftover strip, estimated cost, `unplaced[]` |
 | GET | `cutting-lists/{id}/runs/` | last 10 runs |
 | GET | `cutting-lists/{id}/export/pdf/` `.../export/xlsx/` | throttled; counts toward the plan's monthly export limit |
-| POST | `geometry/preview/` | same body as calculation (+ `color` as `#rrggbb`) → `{dimensions, boxes[], warnings}`. Public (stateless, anonymous throttle) |
+| POST | `geometry/preview/` | same body as calculation (+ `color` as `#rrggbb`, `colors`, `handle_style`) → `{dimensions, boxes[], warnings, consistency}`. Public (stateless, anonymous throttle) |
 | POST | `geometry/export/{glb|gltf|obj}/` | binary download; throttled |
-| CRUD | `designs/` | `kind: furniture|interior`, free-form `config` (≤200 KB), optional `project`, `room_image` |
+| CRUD | `designs/` | `kind: furniture|interior`, `config` (≤200 KB), optional `project`, `room_image`. Furniture configs are validated (see below) |
+| GET | `designs/{id}/model/` | furniture only: the 3D model (with `consistency`) and the calculation rebuilt from the saved config |
+| POST | `designs/{id}/duplicate/` | independent copy named `"<name> (copy)"` |
 
 ## Chat
 
@@ -112,6 +114,23 @@ All of these are optional; omitting them gives exactly the previous behaviour.
 | `track_top`, `track_bottom` | `35`, `20` | `sliding_wardrobe`: panel height = internal height - both allowances (they depend on the sliding system) |
 
 Rules (400 with a field error): `sliding_wardrobe` needs `doors >= 2` and no drawers; `kitchen_wall` takes no drawers; `kitchen_base` must leave at least 200 mm of body height. The part list, hardware and `assumptions[]` change with the type; `geometry/preview/` builds the 3D model from the same layout.
+
+### 3D model, handles, colours and the consistency proof
+
+`geometry/preview/` and `geometry/export/{glb|gltf|obj}/` take every calculator field plus:
+
+| Field | Meaning |
+|---|---|
+| `handle_style` | `bar` (default), `knob`, `none`. `none` removes handles from the model **and** from the hardware list; `knob` draws one 24 x 24 x 22 mm knob per door and drawer front. Bar handles are shortened on small fronts so they never overhang |
+| `colors` | `{carcass, fronts, back, handle}` hex colours (`#rrggbb`); unlisted groups keep their defaults; wins over the legacy single `color`. Exports carry the colours |
+
+The preview response contains `consistency: {valid, problems[], checks[], not_modelled[]}`. The server checks on every preview that the drawn model **is the calculated cabinet**: overall width/height/depth, number of doors, drawer fronts, shelves and handles (against the hardware list), the size of every drawn component against the calculated part of the same name, and that no two structural components occupy the same space. Drawer boxes inside the cabinet are in the cut list but are not drawn (`not_modelled`). A seeded property test builds thousands of random valid cabinets of all four types and requires `valid: true`.
+
+That check found and fixed real problems, which are now validation rules (400 with a field error): shelves must leave at least 30 mm clear opening; kitchen base top rails may not overlap (`2 x rail_width <= depth`); a hanging rail must fit inside the cabinet; sliding panels in the same lane may not collide (`panel width > 2 x overlap` for 3+ panels). Shelves of a sliding wardrobe are now shallower so they clear both door lanes (`depth - 20 - 2 x thickness - 4 - 5`). A shelf that cuts through a wall cabinet's hanging rail is reported as a warning.
+
+### Saved furniture designs
+
+`config` (schema_version 1): `{"schema_version": 1, "input": {…calculator fields incl. cabinet_type, handle_style…}, "color": "#c9a27a", "colors": {…}, "material": <id|null>}`. On save the server rebuilds the cabinet from `input` and refuses (400, field `config`) anything that could not be built: impossible sizes, a bad `handle_style`, bad hex colours, an unknown colour group, an unsupported `schema_version`. Designs saved by older editors (seven numbers and one `color`) stay valid. `designs/{id}/model/` always recomputes the model from the saved config, so a reopened design reflects the current rules; if stored numbers no longer pass validation it answers 400 with the reason.
 
 ### Pricing
 

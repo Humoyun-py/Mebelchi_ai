@@ -11,10 +11,14 @@ export interface Project {
   material: number | null; params: Record<string, unknown>; counts: Record<string, number>; created_at: string; updated_at: string
 }
 export interface Folder { id: number; name: string; parent: number | null; project_count: number }
+export type HandleStyle = 'bar' | 'knob' | 'none'
+export type ColorGroup = 'carcass' | 'fronts' | 'back' | 'handle'
+export type Colors = Partial<Record<ColorGroup, string>>
 export type CabinetType = 'standard' | 'kitchen_base' | 'kitchen_wall' | 'sliding_wardrobe'
 export interface CabinetInput {
   width: number; height: number; depth: number; thickness: number; shelves: number; doors: number; drawers: number
   back_thickness?: number; material?: string; back_material?: string
+  handle_style?: HandleStyle; colors?: Colors
   cabinet_type?: CabinetType; edge_thickness?: number; plinth_height?: number; sliding_overlap?: number; track_top?: number; track_bottom?: number; rail_width?: number
 }
 /** Price inputs sent to the calculator. Every price is supplied by the user (or the user's own material catalogue); the server never invents one. */
@@ -42,7 +46,10 @@ export interface CalcResult {
     by_material: Record<string, { material: string; thickness: number; area_m2: number; parts: number; estimated_area_with_waste_m2: number }> }
 }
 export interface Box { name: string; kind: string; x: number; y: number; z: number; sx: number; sy: number; sz: number; color: string }
-export interface GeometryResult { dimensions: { width: number; height: number; depth: number; thickness: number }; boxes: Box[]; warnings: string[] }
+export interface Consistency { valid: boolean; problems: string[]; checks: string[]; not_modelled: string[] }
+export interface GeometryResult { dimensions: { width: number; height: number; depth: number; thickness: number }; boxes: Box[]; warnings: string[]; consistency?: Consistency }
+/** What the editor stores in a Design (schema_version 1). Older designs only have `input` and `color`. */
+export interface DesignConfig { schema_version?: number; input?: CabinetInput; color?: string; colors?: Colors; material?: number | null }
 export interface CuttingPart {
   id?: number; name: string; width: number | string; height: number | string; thickness: number | string; quantity: number
   material: string; can_rotate: boolean; edge_w: number; edge_h: number; edge_note: string

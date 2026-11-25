@@ -1900,6 +1900,52 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/designs/{id}/duplicate/:
+    post:
+      operationId: designs_duplicate_create
+      description: Scopes every query to the requesting user and stamps owner on create.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this design.
+        required: true
+      tags:
+      - designs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Design'
+          description: ''
+  /api/v1/designs/{id}/model/:
+    get:
+      operationId: designs_model_retrieve
+      description: The 3D model and the calculation, rebuilt from the saved config
+        (never from stale stored numbers).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this design.
+        required: true
+      tags:
+      - designs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/files/:
     get:
       operationId: files_list
@@ -5008,6 +5054,16 @@ components:
           format: double
           default: 100.0
           description: kitchen_base top rails / kitchen_wall hanging rail
+        handle_style:
+          allOf:
+          - $ref: '#/components/schemas/HandleStyleEnum'
+          default: bar
+          description: |-
+            bar | knob | none (none removes handles from the hardware list)
+
+            * `bar` - bar
+            * `knob` - knob
+            * `none` - none
         prices:
           allOf:
           - $ref: '#/components/schemas/PriceList'
@@ -5370,6 +5426,16 @@ components:
       - size_bytes
       - url
       - width
+    HandleStyleEnum:
+      enum:
+      - bar
+      - knob
+      - none
+      type: string
+      description: |-
+        * `bar` - bar
+        * `knob` - knob
+        * `none` - none
     Invitation:
       type: object
       properties:

@@ -14,6 +14,12 @@ KIND_COLORS = {"carcass": "#c9a27a", "shelf": "#c9a27a", "door": "#b98f63", "dra
 GROUP_OF = {"carcass": "carcass", "shelf": "carcass", "door": "fronts", "drawer": "fronts", "back": "back", "handle": "handle"}
 KNOB = (24, 24, 22)   # knob handle size (x, y, z) in mm
 BAR_LEN = 120
+BAR_MARGIN = 40   # a bar handle is at least this much shorter than the front it sits on
+
+
+def _bar(length: float) -> float:
+    """Bar length for a front of the given size: the standard 120 mm, shortened on small fronts so it never overhangs."""
+    return max(20.0, min(BAR_LEN, length - BAR_MARGIN))
 
 
 def _box(name, kind, x, y, z, sx, sy, sz, color=None):
@@ -58,13 +64,14 @@ def build_cabinet(data: dict | CabinetInput, color: str | None = None, colors: d
         if i <= inp.drawers:
             continue  # boundary above a drawer is the drawer front gap, not a board
         y = by + t + slot * i - t / 2
-        boxes.append(_box(f"Shelf {i - inp.drawers}", "shelf", t, y, 0, W - 2 * t, t, D - engine.SHELF_SETBACK, paint("shelf")))
+        boxes.append(_box(f"Shelf {i - inp.drawers}", "shelf", t, y, 0, W - 2 * t, t, engine.shelf_depth(inp), paint("shelf")))
     fh = lay["drawer_front_h"]
     for d in range(inp.drawers):
         y = by + t + d * (fh + engine.DRAWER_FRONT_GAP) + engine.DRAWER_FRONT_GAP / 2
         boxes.append(_box(f"Drawer front {d + 1}", "drawer", t + 2, y, D, lay["inner_w"] - 4, fh, t, paint("drawer")))
         if style == "bar":
-            boxes.append(_box(f"Drawer handle {d + 1}", "handle", W / 2 - BAR_LEN / 2, y + fh - 25, D + t, BAR_LEN, 8, 12, paint("handle")))
+            bl = _bar(lay["inner_w"] - 4)
+            boxes.append(_box(f"Drawer handle {d + 1}", "handle", W / 2 - bl / 2, y + fh - 25, D + t, bl, 8, 12, paint("handle")))
         elif style == "knob":
             boxes.append(_box(f"Drawer handle {d + 1}", "handle", W / 2 - KNOB[0] / 2, y + fh - 40, D + t, *KNOB, paint("handle")))
     if inp.doors and kind == "sliding_wardrobe":
@@ -77,7 +84,8 @@ def build_cabinet(data: dict | CabinetInput, color: str | None = None, colors: d
             boxes.append(_box(f"Sliding door {k + 1}", "door", x, lay["door_y"], z, dw, lay["door_h"], t, paint("door")))
             hx = x + dw - 22 if k % 2 == 0 else x + 10
             if style != "none":   # a flush pull set into the panel (no knob variant for sliding panels)
-                boxes.append(_box(f"Door handle {k + 1}", "handle", hx, lay["door_y"] + lay["door_h"] / 2 - BAR_LEN / 2, z, 12, BAR_LEN, t, paint("handle")))
+                bl = _bar(lay["door_h"])
+                boxes.append(_box(f"Door handle {k + 1}", "handle", hx, lay["door_y"] + lay["door_h"] / 2 - bl / 2, z, 12, bl, t, paint("handle")))
         boxes.append(_box("Top track", "handle", t, H - t - inp.track_top, D - engine.SLIDING_FRONT_SETBACK - t - pitch, lay["inner_w"], inp.track_top, 2 * t + engine.SLIDING_LANE_GAP, paint("handle")))
         boxes.append(_box("Bottom track", "handle", t, by + t, D - engine.SLIDING_FRONT_SETBACK - t - pitch, lay["inner_w"], inp.track_bottom, 2 * t + engine.SLIDING_LANE_GAP, paint("handle")))
     elif inp.doors:
@@ -88,7 +96,8 @@ def build_cabinet(data: dict | CabinetInput, color: str | None = None, colors: d
             hx = x + dw - 22 if k % 2 == 0 else x + 14
             cy = lay["door_y"] + lay["door_h"] / 2
             if style == "bar":
-                boxes.append(_box(f"Door handle {k + 1}", "handle", hx, cy - BAR_LEN / 2, D + t, 8, BAR_LEN, 12, paint("handle")))
+                bl = _bar(lay["door_h"])
+                boxes.append(_box(f"Door handle {k + 1}", "handle", hx, cy - bl / 2, D + t, 8, bl, 12, paint("handle")))
             elif style == "knob":
                 boxes.append(_box(f"Door handle {k + 1}", "handle", hx - 8, cy - KNOB[1] / 2, D + t, *KNOB, paint("handle")))
     model = {

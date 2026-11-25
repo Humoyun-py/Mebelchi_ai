@@ -16,6 +16,8 @@ describe('every translation key used in the UI exists', () => {
       ...['active', 'inactive', 'suspended'].map((s) => `ws.st.${s}`), ...['owner', 'employee'].map((s) => `role.${s}`), ...['active', 'invited', 'removed'].map((s) => `mstatus.${s}`),
       ...['remove', 'leave', 'transfer'].flatMap((k) => [`team.${k}Title`, `team.${k}Do`]), ...['standard', 'kitchen_base', 'kitchen_wall', 'sliding_wardrobe'].map((s) => `type.${s}`),
       ...['kitchen_base', 'kitchen_wall', 'sliding_wardrobe'].map((s) => `type.${s}.hint`), ...['board', 'edge_banding', 'hardware', 'labor'].map((s) => `price.cat.${s}`),
+      ...['perspective', 'front', 'side', 'top'].map((s) => `ed.view.${s}`), ...['carcass', 'fronts', 'back', 'handle'].map((s) => `ed.group.${s}`), ...['carcass', 'shelf', 'door', 'drawer', 'back', 'handle'].map((s) => `ed.kind.${s}`),
+      ...['bar', 'knob', 'none'].map((s) => `ed.handle.${s}`),
     ]
     for (const lang of ['en', 'uz', 'ru'] as const) expect(fam.filter((k) => !(k in dictionaries[lang]))).toEqual([])
   })
