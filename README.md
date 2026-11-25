@@ -53,8 +53,8 @@ The site is served by Nginx on `WEB_PORT` (default 80). See [docs/DEPLOYMENT.md]
 ## Tests
 
 ```bash
-cd backend  && python manage.py test apps     # 114 tests: engine, optimizer, geometry, auth, isolation, uploads, admin, chat, tasks
-cd frontend && npm test                       # 24 tests: API error handling, i18n, formatting, UI components
+cd backend  && python manage.py test apps     # 350 tests: engine, cabinet types, pricing, optimizer verification, geometry, auth, isolation, uploads, admin, audit, workshops (permissions, orders, tasks, query counts, statistics), chat, tasks
+cd frontend && npm test                       # 120 tests: API error handling, i18n (parity and key coverage), brand contrast, formatting, UI components, workshop/order/task screens, calculator request contract, admin audit tab
 cd frontend && npx tsc -b && npm run build    # type-check and production build
 ```
 
@@ -63,12 +63,14 @@ The backend suite also passes against PostgreSQL 16 (set `POSTGRES_*` variables)
 ## Features
 
 - **Auth**: register (two-step, password strength meter), **Google sign-in** (set `GOOGLE_CLIENT_ID` in `backend/.env`; without it the button explains it is not configured), JWT login with rotating refresh tokens (blacklisted on logout), password reset (no account enumeration), change password, session list and revocation, role selection stored in the database.
-- **Material calculator**: width/height/depth/thickness/shelves/doors/drawers to a full parts list (size, quantity, material, edge banding), area, edge-banding length, estimated hardware counts, warnings, and the written assumptions behind every formula. Hard validation of ranges and impossible geometry.
+- **Material calculator**: width/height/depth/thickness/shelves/doors/drawers to a full parts list (size, quantity, material, edge banding), area, edge-banding length, estimated hardware counts, warnings, and the written assumptions behind every formula. Hard validation of ranges and impossible geometry. Cabinet types (standard, kitchen base with plinth, kitchen wall, sliding wardrobe), edge-tape thickness with cut sizes, and an optional price estimate built only from prices you supply or your own material catalogue (missing prices are reported, never guessed).. The calculator page has a cabinet-type selector, edge-tape thickness, a cut-size column and a **Price** tab (you type the prices, the server does the arithmetic; empty prices are reported as missing).
 - **Cutting lists**: generate from a calculation or build manually, edit, save; **PDF** and **Excel** export stamped "for professional review".
 - **Material optimizer**: guillotine shelf packing with kerf, edge trim, grain-aware rotation, six sort strategies plus seeded random-order trials (bounded by job size; never worse than the fixed strategies, saved a sheet in about 4% of random benchmark jobs); reports utilization, waste, leftover strip, estimated cost (when sheet prices are set) and any part too large for the sheet. SVG sheet layouts in the UI and PDF.
 - **3D**: parametric model built from the same parameters as the calculator; orbit/zoom/pan, dimension annotations, colors, wireframe, 2D front elevation, export **GLB / glTF / OBJ**.
 - **Chat assistant** (rule-based): answers in the language you write (Uzbek, Russian, English), handles greetings and small talk, markdown, tables, copy/edit/regenerate/like/dislike/delete/export, attachments, voice input.
 - **Home owner**: interior designer with room photo, style presets, furniture options, dimensions, wall placement and a top-down room plan with fit warnings.
+- **Workshops** (screens under *Workshops* in the sidebar): workshops with owner and employees (invitations, soft removal, ownership transfer), customer orders with a guarded status lifecycle, payment records, status history, production tasks with assignment and employee status updates, owner statistics. Strict per-workshop isolation; employees never see order prices. Status buttons are drawn from `allowed_next_statuses` sent by the server, so the lifecycle rules live only in the backend. See `docs/API.md` and `docs/ARCHITECTURE.md`.
+- **Audit log**: append-only record of who created, changed or deleted what (admin API `admin-api/audit-logs/` and the **Audit log** tab of the Administration page, with filters).
 - **Projects, folders, gallery (masonry, lightbox, favorites, search), files, notifications, subscriptions, settings (7 sections), admin dashboard.**
 - Dark (default) and light themes saved to the profile; English, Uzbek, Russian; responsive from phone to desktop.
 
