@@ -38,6 +38,8 @@ services:
       POSTGRES_HOST: db
       REDIS_URL: redis://redis:6379/0
       RUN_MIGRATIONS: "1"
+      # nginx overwrites X-Real-IP with the real peer address; the backend port is not published, so the header cannot be forged.
+      AUDIT_IP_HEADER: HTTP_X_REAL_IP
     volumes:
       - media:/app/media
       - static:/app/staticfiles

@@ -3,17 +3,18 @@
 @import "@fontsource-variable/geist";
 
 :root, [data-theme="dark"] {
-  --bg: #020617; --sidebar: #0b1120; --card: #111827; --card2: #172033; --line: #1f2937;
-  --fg: #f8fafc; --muted: #94a3b8; --primary: #2563eb; --primary-hover: #1d4ed8; --on-primary: #ffffff;
-  --success: #22c55e; --warning: #f59e0b; --danger: #ef4444;
-  --glass: rgb(2 6 23 / 0.7); --grid: rgb(148 163 184 / 0.07); --ring: rgb(37 99 235 / 0.45);
+  /* brand: Deep Navy #0F172A, Cyan #22D3EE, White */
+  --bg: #0f172a; --sidebar: #0b1325; --card: #15203a; --card2: #1c2a48; --line: #2a3a5c;
+  --fg: #ffffff; --muted: #a3b2c9; --primary: #22d3ee; --primary-hover: #67e8f9; --on-primary: #0f172a;
+  --success: #22c55e; --warning: #f59e0b; --danger: #f87171;
+  --glass: rgb(15 23 42 / 0.72); --grid: rgb(148 163 184 / 0.07); --ring: rgb(34 211 238 / 0.45);
   color-scheme: dark;
 }
 [data-theme="light"] {
   --bg: #f8fafc; --sidebar: #ffffff; --card: #ffffff; --card2: #f1f5f9; --line: #e2e8f0;
-  --fg: #0f172a; --muted: #64748b; --primary: #2563eb; --primary-hover: #1d4ed8; --on-primary: #ffffff;
-  --success: #16a34a; --warning: #d97706; --danger: #dc2626;
-  --glass: rgb(248 250 252 / 0.75); --grid: rgb(15 23 42 / 0.06); --ring: rgb(37 99 235 / 0.35);
+  --fg: #0f172a; --muted: #55657d; --primary: #0e7490; --primary-hover: #155e75; --on-primary: #ffffff;
+  --success: #15803d; --warning: #b45309; --danger: #dc2626;
+  --glass: rgb(248 250 252 / 0.75); --grid: rgb(15 23 42 / 0.06); --ring: rgb(14 116 144 / 0.35);
   color-scheme: light;
 }
 
@@ -38,7 +39,7 @@ h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0
 }
 .glass { background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-::selection { background: rgb(37 99 235 / 0.35); }
+::selection { background: rgb(34 211 238 / 0.3); }
 * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
 .prose-chat { line-height: 1.65; font-size: 0.9375rem; }

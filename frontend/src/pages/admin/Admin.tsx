@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, CreditCard, Flag, FolderKanban, HardDrive, Send, Users } from 'lucide-react'
+import { Activity, CreditCard, Flag, FolderKanban, HardDrive, History, Send, Users } from 'lucide-react'
 import { api, apiError } from '../../lib/api'
-import { fmtAgo, fmtBytes } from '../../lib/format'
-import type { Page } from '../../lib/types'
+import { fmtAgo, fmtBytes, fmtDateTime } from '../../lib/format'
+import type { AuditEntry, Page } from '../../lib/types'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input, Select, Switch, Textarea } from '../../components/ui/Field'
@@ -12,7 +12,7 @@ import { Tabs } from '../../components/ui/Tabs'
 import { toast } from '../../components/ui/Toast'
 import { useDebounced } from '../../hooks/queries'
 
-type Tab = 'overview' | 'users' | 'projects' | 'billing' | 'logs' | 'features' | 'storage'
+type Tab = 'overview' | 'users' | 'projects' | 'billing' | 'logs' | 'audit' | 'features' | 'storage'
 const get = async <T,>(url: string, params?: object) => (await api.get<T>(`/admin-api/${url}`, { params })).data
 
 interface Stats { users: { total: number; active_30d: number; by_role: { role: string; n: number }[] }; projects: { total: number; active: number }; subscriptions: { plan__name: string; n: number }[]
@@ -89,6 +89,36 @@ function LogsTab() {
   return <div><Toolbar q={l.q} setQ={l.setQ} />{l.isLoading ? <Skeleton className="h-64" /> : <DataTable columns={cols} rows={l.data?.results ?? []} empty={<Card className="p-8 text-center text-sm text-muted">No server errors recorded.</Card>} />}{l.data && <Pagination page={l.page} count={l.data.count} pageSize={24} onPage={l.setPage} />}</div>
 }
 
+
+const AUDIT_ACTIONS = ['create', 'update', 'delete', 'login', 'logout', 'password']
+/** Append-only audit trail (read-only). Filters are sent to the server; nothing here can change an entry. */
+function AuditTab() {
+  const [action, setAction] = useState(''); const [event, setEvent] = useState(''); const [model, setModel] = useState(''); const [actor, setActor] = useState('')
+  const devent = useDebounced(event, 300); const dmodel = useDebounced(model, 300); const dactor = useDebounced(actor, 300)
+  const l = useList<AuditEntry>('audit-logs/', { action, event: devent, model: dmodel, actor_email: dactor })
+  const cols: Column<AuditEntry>[] = [
+    { key: 't', header: 'Time', className: 'whitespace-nowrap text-muted', render: (e) => <span title={e.created_at}>{fmtDateTime(e.created_at)}</span> },
+    { key: 'a', header: 'Actor', render: (e) => (e.actor_email ? <span>{e.actor_email}</span> : <span className="text-muted">system</span>) },
+    { key: 'e', header: 'Event', render: (e) => <div className="flex flex-wrap items-center gap-1"><Badge tone={e.action === 'delete' ? 'danger' : e.action === 'create' ? 'success' : 'neutral'}>{e.action}</Badge>{e.event && <code className="text-xs text-muted">{e.event}</code>}</div> },
+    { key: 'o', header: 'Object', render: (e) => <div className="min-w-0"><p className="truncate">{e.object_repr || '-'}</p><p className="text-xs text-muted">{e.model}{e.object_id ? ` #${e.object_id}` : ''}</p></div> },
+    { key: 'i', header: 'IP', className: 'num hidden text-muted lg:table-cell', render: (e) => e.ip ?? '-' },
+    { key: 'c', header: 'Changes', render: (e) => { const keys = Object.keys(e.changes ?? {}); return keys.length ? (
+      <details className="text-xs"><summary className="cursor-pointer text-primary">{keys.length} field{keys.length > 1 ? 's' : ''}</summary>
+        <ul className="mt-1 space-y-0.5">{keys.map((k) => { const c = (e.changes as Record<string, { old?: unknown; new?: unknown }>)[k]; return <li key={k}><span className="text-muted">{k}:</span> {c && typeof c === 'object' && 'old' in c ? <>{JSON.stringify(c.old)} → {JSON.stringify(c.new)}</> : JSON.stringify(c)}</li> })}</ul></details>) : <span className="text-muted">-</span> } },
+  ]
+  return (
+    <div><div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="min-w-48 flex-1"><Input label="Search actor, object or path" value={l.q} onChange={(e) => l.setQ(e.target.value)} /></div>
+      <div className="w-36"><Select label="Action" value={action} onChange={(e) => { setAction(e.target.value); l.setPage(1) }} options={[{ value: '', label: 'All' }, ...AUDIT_ACTIONS.map((a) => ({ value: a, label: a }))]} /></div>
+      <div className="w-44"><Input label="Event (e.g. order.status_changed)" value={event} onChange={(e) => { setEvent(e.target.value); l.setPage(1) }} /></div>
+      <div className="w-40"><Input label="Model (app.model)" value={model} onChange={(e) => { setModel(e.target.value); l.setPage(1) }} /></div>
+      <div className="w-44"><Input label="Actor email" value={actor} onChange={(e) => { setActor(e.target.value); l.setPage(1) }} /></div></div>
+      {l.isError ? <ErrorState message="Could not load the audit log." onRetry={() => l.refetch()} /> : l.isLoading ? <Skeleton className="h-64" /> :
+        <DataTable columns={cols} rows={l.data?.results ?? []} empty={<Card className="p-8 text-center text-sm text-muted">No audit entries match.</Card>} />}
+      {l.data && <Pagination page={l.page} count={l.data.count} pageSize={24} onPage={l.setPage} />}</div>
+  )
+}
+
 interface Flag { id: number; key: string; description: string; enabled: boolean }
 function FeaturesTab() {
   const qc = useQueryClient(); const flags = useQuery({ queryKey: ['admin', 'features'], queryFn: () => get<Flag[]>('features/') }); const [title, setTitle] = useState(''); const [body, setBody] = useState('')
@@ -109,7 +139,7 @@ export default function Admin() {
   const [tab, setTab] = useState<Tab>('overview')
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-8"><h1 className="text-2xl font-bold">Administration</h1><p className="mt-1 text-sm text-muted">Platform-wide data. Access is restricted to staff.</p>
-      <div className="mt-5"><Tabs tabs={[{ id: 'overview', label: 'Overview', icon: <Activity size={15} /> }, { id: 'users', label: 'Users', icon: <Users size={15} /> }, { id: 'projects', label: 'Projects', icon: <FolderKanban size={15} /> }, { id: 'billing', label: 'Billing', icon: <CreditCard size={15} /> }, { id: 'logs', label: 'Logs', icon: <Activity size={15} /> }, { id: 'features', label: 'Features', icon: <Flag size={15} /> }, { id: 'storage', label: 'Storage', icon: <HardDrive size={15} /> }]} value={tab} onChange={setTab} /></div>
-      <div className="mt-6">{{ overview: <Overview />, users: <UsersTab />, projects: <ProjectsTab />, billing: <BillingTab />, logs: <LogsTab />, features: <FeaturesTab />, storage: <StorageTab /> }[tab]}</div></div>
+      <div className="mt-5"><Tabs tabs={[{ id: 'overview', label: 'Overview', icon: <Activity size={15} /> }, { id: 'users', label: 'Users', icon: <Users size={15} /> }, { id: 'projects', label: 'Projects', icon: <FolderKanban size={15} /> }, { id: 'billing', label: 'Billing', icon: <CreditCard size={15} /> }, { id: 'logs', label: 'Logs', icon: <Activity size={15} /> }, { id: 'audit', label: 'Audit log', icon: <History size={15} /> }, { id: 'features', label: 'Features', icon: <Flag size={15} /> }, { id: 'storage', label: 'Storage', icon: <HardDrive size={15} /> }]} value={tab} onChange={setTab} /></div>
+      <div className="mt-6">{{ overview: <Overview />, users: <UsersTab />, projects: <ProjectsTab />, billing: <BillingTab />, logs: <LogsTab />, audit: <AuditTab />, features: <FeaturesTab />, storage: <StorageTab /> }[tab]}</div></div>
   )
 }

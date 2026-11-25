@@ -1,15 +1,24 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { Button } from './Button'
 
+/** Open modals, innermost last. Only the innermost one reacts to Escape/Tab, and the page scroll lock lasts until the last one closes. */
+const stack: symbol[] = []
+
 export function Modal({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
+  // the latest onClose without re-running the effect (re-running would reshuffle the modal stack on every parent render)
+  const closeRef = useRef(onClose)
+  useEffect(() => { closeRef.current = onClose })
   useEffect(() => {
     if (!open) return
     const prev = document.activeElement as HTMLElement | null
+    const me = Symbol('modal'); stack.push(me)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (stack[stack.length - 1] !== me) return
+      if (e.key === 'Escape') closeRef.current()
       if (e.key === 'Tab' && ref.current) {
         const f = ref.current.querySelectorAll<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')
         if (!f.length) return
@@ -20,10 +29,11 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
     }
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
-    setTimeout(() => ref.current?.querySelector<HTMLElement>('input,select,textarea')?.focus(), 50)
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; prev?.focus() }
-  }, [open, onClose])
-  return (
+    // focus the first field, but never steal focus from a field the user (or a script) has already moved to inside the dialog
+    const autofocus = setTimeout(() => { if (ref.current && !ref.current.contains(document.activeElement)) ref.current.querySelector<HTMLElement>('input,select,textarea')?.focus() }, 50)
+    return () => { clearTimeout(autofocus); document.removeEventListener('keydown', onKey); stack.splice(stack.indexOf(me), 1); if (!stack.length) document.body.style.overflow = ''; prev?.focus() }
+  }, [open])
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -38,16 +48,17 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
 
-export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel = 'Delete', loading }: {
-  open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmLabel?: string; loading?: boolean
+export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel = 'Delete', cancelLabel = 'Cancel', loading }: {
+  open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmLabel?: string; cancelLabel?: string; loading?: boolean
 }) {
   return (
     <Modal open={open} onClose={onClose} title={title}
-      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="danger" loading={loading} onClick={onConfirm}>{confirmLabel}</Button></>}>
+      footer={<><Button variant="ghost" onClick={onClose}>{cancelLabel}</Button><Button variant="danger" loading={loading} onClick={onConfirm}>{confirmLabel}</Button></>}>
       <p className="text-sm text-muted">{message}</p>
     </Modal>
   )

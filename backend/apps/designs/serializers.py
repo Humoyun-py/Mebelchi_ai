@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from . import furniture
 from .models import Design
 
 
@@ -19,6 +20,15 @@ class DesignSerializer(serializers.ModelSerializer):
 
     def validate_room_image(self, v):
         return self._owned(v, "Image")
+
+    def validate(self, attrs):
+        kind = attrs.get("kind") or (self.instance.kind if self.instance else Design.Kind.FURNITURE)
+        if kind == Design.Kind.FURNITURE and isinstance(attrs.get("config"), dict):
+            try:
+                furniture.check_config(attrs["config"])
+            except ValueError as e:
+                raise serializers.ValidationError({"config": str(e)})
+        return attrs
 
     def validate_config(self, v):
         if not isinstance(v, dict):

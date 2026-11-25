@@ -15,10 +15,14 @@ def create_from_calculation(owner, calc: dict, *, project=None, name: str | None
     """Create a cutting list and its parts from an engine.calculate() result. Used by the web app and the Telegram bot."""
     cl = CuttingList.objects.create(owner=owner, project=project, name=name or "Cabinet cutting list",
                                     sheet_length=sheet_length, sheet_width=sheet_width, source_inputs=calc["input"])
+    # With edge banding the sheet must be cut at (finished size - tape); without it cut size == finished size.
+    tape = calc["input"].get("edge_thickness", 0) or 0
+    banded = tape > 0
     CuttingPart.objects.bulk_create([
-        CuttingPart(cutting_list=cl, name=p["name"], width=p["width"], height=p["height"], thickness=p["thickness"],
-                    quantity=p["quantity"], material=p["material"], can_rotate=p["can_rotate"],
-                    edge_w=p["edge_w"], edge_h=p["edge_h"], edge_note=p["edge_note"])
+        CuttingPart(cutting_list=cl, name=p["name"], width=p["cut_width"] if banded else p["width"], height=p["cut_height"] if banded else p["height"],
+                    thickness=p["thickness"], quantity=p["quantity"], material=p["material"], can_rotate=p["can_rotate"],
+                    edge_w=p["edge_w"], edge_h=p["edge_h"],
+                    edge_note=(p["edge_note"] + f"; cut size, {tape:g} mm tape deducted") if banded else p["edge_note"])
         for p in calc["parts"]
     ])
     return cl
@@ -67,6 +71,11 @@ def run_optimization(cl: CuttingList, allow_rotation: bool = True) -> Optimizati
                     "waste_pct": round(100 * (1 - tot_parts_area / tot_sheet_area), 2) if tot_sheet_area else 0,
                     "estimated_cost": round(tot_cost, 2) if cost_known else None, "unplaced_count": len(unplaced)},
         "unplaced": unplaced,
+        "method": optimizer.METHOD,
+        "approximate": True,
+        "is_optimal": False,
+        "approximation_note": optimizer.APPROXIMATION_NOTE,
+        "validation": {"valid": all(g["result"]["validation"]["valid"] for g in out), "groups_checked": len(out)},
         "requires_professional_review": True,
         "disclaimer": "Cutting layout for professional review. Verify grain direction, defects and machine limits before cutting.",
     }

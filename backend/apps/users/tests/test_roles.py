@@ -24,11 +24,11 @@ class RoleSelectionTests(TestCase):
         admin = make_user("admin@x.com", is_staff=True, is_superuser=True)
         r = client_for(admin).patch(f"/api/v1/admin-api/users/{self.user.id}/", {"role": "workshop"}, format="json")
         self.assertEqual(r.status_code, 200)
-        entry = AuditLog.objects.get(action="user.role_changed")
+        entry = AuditLog.objects.get(event="user.role_changed")
         self.assertEqual(entry.actor_id, admin.id)
         self.assertEqual(entry.changes, {"role": ["homeowner", "workshop"]})
 
     def test_unchanged_role_writes_no_audit_row(self):
         admin = make_user("admin@x.com", is_staff=True, is_superuser=True)
         client_for(admin).patch(f"/api/v1/admin-api/users/{self.user.id}/", {"role": "homeowner"}, format="json")
-        self.assertFalse(AuditLog.objects.filter(action="user.role_changed").exists())
+        self.assertFalse(AuditLog.objects.filter(event="user.role_changed").exists())

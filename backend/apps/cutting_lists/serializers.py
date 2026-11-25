@@ -1,6 +1,9 @@
 from django.db import transaction
 from rest_framework import serializers
 
+from apps.audit import services as audit
+from apps.calculations.serializers import CabinetFieldsSerializer
+
 from .models import CuttingList, CuttingPart, OptimizationRun
 
 
@@ -70,8 +73,11 @@ class CuttingListSerializer(serializers.ModelSerializer):
             setattr(instance, k, v)
         instance.save()
         if parts is not None:  # full replacement of the parts table
+            old_count = instance.parts.count()
             instance.parts.all().delete()
             CuttingPart.objects.bulk_create([CuttingPart(cutting_list=instance, **p) for p in parts])
+            audit.record("update", model="cutting_lists.cuttinglist", object_id=instance.pk, object_repr=instance.name,
+                         changes={"parts": {"old": f"{old_count} rows", "new": f"{len(parts)} rows"}})
         return instance
 
 
@@ -79,21 +85,11 @@ class OptimizeParamsSerializer(serializers.Serializer):
     allow_rotation = serializers.BooleanField(default=True)
 
 
-class FromCalculationSerializer(serializers.Serializer):
+class FromCalculationSerializer(CabinetFieldsSerializer):
     name = serializers.CharField(max_length=160, required=False)
     project = serializers.IntegerField(required=False, allow_null=True)
     sheet_length = serializers.IntegerField(required=False, min_value=300, max_value=6000)
     sheet_width = serializers.IntegerField(required=False, min_value=300, max_value=3500)
-    width = serializers.FloatField()
-    height = serializers.FloatField()
-    depth = serializers.FloatField()
-    thickness = serializers.FloatField(default=18)
-    shelves = serializers.IntegerField(default=0)
-    doors = serializers.IntegerField(default=0)
-    drawers = serializers.IntegerField(default=0)
-    back_thickness = serializers.FloatField(default=4)
-    material = serializers.CharField(default="MDF", max_length=20)
-    back_material = serializers.CharField(default="HDF", max_length=20)
 
 
 class OptimizationRunSerializer(serializers.ModelSerializer):

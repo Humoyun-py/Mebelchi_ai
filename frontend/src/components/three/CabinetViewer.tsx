@@ -1,10 +1,13 @@
 import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { ContactShadows, Line, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Box } from '../../lib/types'
+import { cameraPose, type View } from '../../lib/editor3d'
+import { useT } from '../../lib/i18n'
 
 const S = 0.001 // mm -> m
+const setCursor = (c: string) => { document.body.style.cursor = c }
 
 class WebGLBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -38,26 +41,47 @@ function Dim({ a, b, label, offset, unit }: { a: [number, number, number]; b: [n
   const mid: [number, number, number] = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2, (p1[2] + p2[2]) / 2]
   return (
     <group>
-      <Line points={[p1, p2]} color="#60a5fa" lineWidth={1.5} />
-      <Line points={[a, p1]} color="#60a5fa" lineWidth={0.6} transparent opacity={0.5} />
-      <Line points={[b, p2]} color="#60a5fa" lineWidth={0.6} transparent opacity={0.5} />
+      <Line points={[p1, p2]} color="#22d3ee" lineWidth={1.5} />
+      <Line points={[a, p1]} color="#22d3ee" lineWidth={0.6} transparent opacity={0.5} />
+      <Line points={[b, p2]} color="#22d3ee" lineWidth={0.6} transparent opacity={0.5} />
       <Label3D position={mid} text={label} unit={unit} />
     </group>
   )
 }
 
-function Model({ boxes, dims, showDims, wire }: { boxes: Box[]; dims: { width: number; height: number; depth: number }; showDims: boolean; wire: boolean }) {
+/** Moves the camera to the requested standard view. Axis views use a very narrow field of view (practically orthographic). */
+function ViewRig({ view, dims, resetKey }: { view: View; dims: { width: number; height: number; depth: number }; resetKey: number }) {
+  const get = useThree((s) => s.get)   // the live scene state, read inside the effect (the camera is a mutable three.js object, not React state)
+  const px = useThree((s) => s.size)
+  const { width, height, depth } = dims
+  useEffect(() => {
+    const st = get(); const camera = st.camera as THREE.PerspectiveCamera; const controls = st.controls as { target: THREE.Vector3; update: () => void } | null
+    const pose = cameraPose(view, { width, height, depth }, px.width / Math.max(px.height, 1))
+    camera.position.set(...pose.position); camera.up.set(...pose.up); camera.fov = pose.fov; camera.near = 0.05; camera.far = 200
+    camera.lookAt(0, 0, 0); camera.updateProjectionMatrix()
+    if (controls) { controls.target.set(0, 0, 0); controls.update() }
+    st.invalidate()
+  }, [view, resetKey, width, height, depth, px.width, px.height, get])
+  return null
+}
+
+function Model({ boxes, dims, showDims, wire, selected, onSelect }: { boxes: Box[]; dims: { width: number; height: number; depth: number }; showDims: boolean; wire: boolean; selected?: string | null; onSelect?: (b: Box) => void }) {
   const { width: W, height: H, depth: D } = dims
   const cx = (W * S) / 2, cz = (D * S) / 2
   const geoms = useMemo(() => boxes.map((b) => new THREE.BoxGeometry(b.sx * S, b.sy * S, b.sz * S)), [boxes])
   const edges = useMemo(() => geoms.map((g) => new THREE.EdgesGeometry(g)), [geoms])
   const w = W * S, h = H * S, d = D * S, u = Math.max(w, h, d)
+  useEffect(() => () => setCursor(''), [])   // never leave the pointer cursor behind when the viewer goes away
   return (
     <group position={[-cx, 0, -cz]}>
       {boxes.map((b, i) => (
-        <mesh key={`${b.name}-${i}`} geometry={geoms[i]} position={[(b.x + b.sx / 2) * S, (b.y + b.sy / 2) * S, (b.z + b.sz / 2) * S]} castShadow receiveShadow>
-          <meshStandardMaterial color={b.color} roughness={b.kind === 'handle' ? 0.3 : 0.75} metalness={b.kind === 'handle' ? 0.8 : 0} wireframe={wire} />
-          {!wire && <lineSegments geometry={edges[i]}><lineBasicMaterial color="#000" transparent opacity={0.28} /></lineSegments>}
+        <mesh key={`${b.name}-${i}`} geometry={geoms[i]} position={[(b.x + b.sx / 2) * S, (b.y + b.sy / 2) * S, (b.z + b.sz / 2) * S]} castShadow receiveShadow
+          onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(b) } : undefined}
+          onPointerOver={onSelect ? (e) => { e.stopPropagation(); setCursor('pointer') } : undefined} onPointerOut={onSelect ? () => setCursor('') : undefined}>
+          <meshStandardMaterial color={b.color} roughness={b.kind === 'handle' ? 0.3 : 0.75} metalness={b.kind === 'handle' ? 0.8 : 0} wireframe={wire}
+            emissive={selected === b.name ? '#22d3ee' : '#000000'} emissiveIntensity={selected === b.name ? 0.45 : 0} />
+          {/* edge outlines are decoration: they must never take part in picking (three's default line threshold is 1 unit = 1 m here, which made every click hit the nearest outline) */}
+          {!wire && <lineSegments geometry={edges[i]} raycast={() => null}><lineBasicMaterial color={selected === b.name ? '#22d3ee' : '#000'} transparent opacity={selected === b.name ? 1 : 0.28} /></lineSegments>}
         </mesh>
       ))}
       {showDims && (<>
@@ -69,31 +93,37 @@ function Model({ boxes, dims, showDims, wire }: { boxes: Box[]; dims: { width: n
   )
 }
 
-export function CabinetViewer({ boxes, dims, showDims = true, wire = false, autoRotate = false, className = 'h-[420px]', interactive = true }: {
+export function CabinetViewer({ boxes, dims, showDims = true, wire = false, autoRotate = false, className = 'h-[420px]', interactive = true, view = 'perspective', resetKey = 0, selected, onSelect }: {
   boxes: Box[]; dims: { width: number; height: number; depth: number }; showDims?: boolean; wire?: boolean; autoRotate?: boolean; className?: string; interactive?: boolean
+  /** Standard camera view; changing it (or `resetKey`) moves the camera there. */
+  view?: View; resetKey?: number
+  /** Name of the highlighted component, and the click handler (null = clicked empty space). Pointer picking is on when onSelect is given. */
+  selected?: string | null; onSelect?: (b: Box | null) => void
 }) {
+  const t = useT(); const axis = view !== 'perspective'
   const size = Math.max(dims.width, dims.height, dims.depth) * S
   const dist = size * 1.55 + 0.5
   const fallback = <div className={`flex items-center justify-center rounded-[14px] border border-line bg-card2 p-6 text-center text-sm text-muted ${className}`}>3D preview needs WebGL, which is unavailable in this browser. All calculations still work.</div>
   return (
     <WebGLBoundary fallback={fallback}>
-      <div className={`relative overflow-hidden rounded-[14px] border border-line bg-gradient-to-b from-card2 to-card ${className}`}>
+      <div data-view={view} data-selected={selected ?? ''} className={`relative overflow-hidden rounded-[14px] border border-line bg-gradient-to-b from-card2 to-card ${className}`}>
         <Canvas shadows dpr={[1, 2]} camera={{ position: [dist * 0.8, dist * 0.55, dist], fov: 38, near: 0.05, far: 60 }} frameloop={autoRotate ? 'always' : 'demand'}
-          aria-label="3D furniture preview" gl={{ antialias: true, preserveDrawingBuffer: false }}>
+          aria-label="3D furniture preview" gl={{ antialias: true, preserveDrawingBuffer: false }} onPointerMissed={() => onSelect?.(null)}>
           <hemisphereLight args={['#dbeafe', '#1e293b', 0.9]} />
           <directionalLight position={[4, 6, 5]} intensity={1.8} castShadow shadow-mapSize={[1024, 1024]} />
           <directionalLight position={[-4, 3, -3]} intensity={0.5} />
           <Suspense fallback={null}>
             <group position={[0, -(dims.height * S) / 2, 0]}>
-              <Model boxes={boxes} dims={dims} showDims={showDims} wire={wire} />
+              <Model boxes={boxes} dims={dims} showDims={showDims} wire={wire} selected={selected} onSelect={onSelect ? (b) => onSelect(b) : undefined} />
               <ContactShadows position={[0, -0.002, 0]} opacity={0.5} scale={size * 4} blur={2.4} far={size * 2} />
               <gridHelper args={[size * 6, 24, '#334155', '#1e293b']} position={[0, -0.003, 0]} />
             </group>
           </Suspense>
-          <OrbitControls makeDefault enabled={interactive} enablePan enableDamping target={[0, 0, 0]} autoRotate={autoRotate} autoRotateSpeed={1.1}
-            minDistance={size * 0.8} maxDistance={size * 8} maxPolarAngle={Math.PI / 2 + 0.1} />
+          <OrbitControls makeDefault enabled={interactive} enablePan enableDamping target={[0, 0, 0]} autoRotate={autoRotate && !axis} autoRotateSpeed={1.1} enableRotate={!axis}
+            minDistance={size * 0.8} maxDistance={axis ? size * 400 : size * 8} maxPolarAngle={axis ? Math.PI : Math.PI / 2 + 0.1} />
+          <ViewRig view={view} dims={dims} resetKey={resetKey} />
         </Canvas>
-        {interactive && <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-muted">Drag to rotate · scroll to zoom · right-drag to pan</p>}
+        {interactive && <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-muted">{axis ? t('ed.hint.axis') : t('ed.hint.orbit')}{onSelect ? ` · ${t('ed.hint.pick')}` : ''}</p>}
       </div>
     </WebGLBoundary>
   )

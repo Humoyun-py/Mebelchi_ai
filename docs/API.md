@@ -57,16 +57,18 @@ curl -X POST /api/v1/calculations/material/ -H "Authorization: Bearer $T" -H 'Co
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `calculations/material/` | body: `width,height,depth,thickness=18,shelves=0,doors=0,drawers=0,back_thickness=4,material,back_material`; optional `save, name, project`. Returns `parts[], summary, hardware[], warnings[], assumptions[], requires_professional_review` |
+| POST | `calculations/material/` | body: `width,height,depth,thickness=18,shelves=0,doors=0,drawers=0,back_thickness=4,material,back_material`; optional `save, name, project`; optional cabinet-type and edge parameters (below) and prices (below). Returns `parts[], summary, hardware[], warnings[], assumptions[], requires_professional_review` and, only when prices are requested, `pricing` |
 | GET/DELETE | `calculations/`, `calculations/{id}/` | saved results |
 | CRUD | `cutting-lists/` | `parts[]` are replaced as a whole on update |
 | POST | `cutting-lists/from-calculation/` | cabinet fields + `name, project, sheet_length, sheet_width` |
 | POST | `cutting-lists/{id}/optimize/` | `{allow_rotation}` → stored run: groups per material+thickness, sheets with placements, utilization, waste, leftover strip, estimated cost, `unplaced[]` |
 | GET | `cutting-lists/{id}/runs/` | last 10 runs |
 | GET | `cutting-lists/{id}/export/pdf/` `.../export/xlsx/` | throttled; counts toward the plan's monthly export limit |
-| POST | `geometry/preview/` | same body as calculation (+ `color` as `#rrggbb`) → `{dimensions, boxes[], warnings}`. Public (stateless, anonymous throttle) |
+| POST | `geometry/preview/` | same body as calculation (+ `color` as `#rrggbb`, `colors`, `handle_style`) → `{dimensions, boxes[], warnings, consistency}`. Public (stateless, anonymous throttle) |
 | POST | `geometry/export/{glb|gltf|obj}/` | binary download; throttled |
-| CRUD | `designs/` | `kind: furniture|interior`, free-form `config` (≤200 KB), optional `project`, `room_image` |
+| CRUD | `designs/` | `kind: furniture|interior`, `config` (≤200 KB), optional `project`, `room_image`. Furniture configs are validated (see below) |
+| GET | `designs/{id}/model/` | furniture only: the 3D model (with `consistency`) and the calculation rebuilt from the saved config |
+| POST | `designs/{id}/duplicate/` | independent copy named `"<name> (copy)"` |
 
 ## Chat
 
@@ -98,6 +100,148 @@ Assistant message `metadata.intent` is one of `calculation, help, need_input, in
 | GET | `notifications/`, `notifications/unread-count/`; POST `notifications/{id}/read/`, `notifications/read-all/`; DELETE | |
 | GET | `analytics/me/`, `analytics/features/` | own usage events; feature flags |
 
+### Cabinet types, edge banding and sliding doors
+
+All of these are optional; omitting them gives exactly the previous behaviour.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `cabinet_type` | `standard` | `standard`, `kitchen_base`, `kitchen_wall`, `sliding_wardrobe` |
+| `edge_thickness` | `0` | mm of edge tape (0-3). When > 0 every part also reports `cut_width`/`cut_height` = finished size minus one tape thickness per banded edge; `cutting-lists/from-calculation/` then stores the cut sizes |
+| `plinth_height` | `100` | `kitchen_base`: carcass height = `height - plinth_height`; adds a `Plinth` part, two top rails instead of a top panel, adjustable legs |
+| `rail_width` | `100` | `kitchen_base` top rails; `kitchen_wall` hanging rail |
+| `sliding_overlap` | `30` | `sliding_wardrobe`: neighbouring panels overlap; panel width = (internal width + (n-1) x overlap) / n |
+| `track_top`, `track_bottom` | `35`, `20` | `sliding_wardrobe`: panel height = internal height - both allowances (they depend on the sliding system) |
+
+Rules (400 with a field error): `sliding_wardrobe` needs `doors >= 2` and no drawers; `kitchen_wall` takes no drawers; `kitchen_base` must leave at least 200 mm of body height. The part list, hardware and `assumptions[]` change with the type; `geometry/preview/` builds the 3D model from the same layout.
+
+### 3D model, handles, colours and the consistency proof
+
+`geometry/preview/` and `geometry/export/{glb|gltf|obj}/` take every calculator field plus:
+
+| Field | Meaning |
+|---|---|
+| `handle_style` | `bar` (default), `knob`, `none`. `none` removes handles from the model **and** from the hardware list; `knob` draws one 24 x 24 x 22 mm knob per door and drawer front. Bar handles are shortened on small fronts so they never overhang |
+| `colors` | `{carcass, fronts, back, handle}` hex colours (`#rrggbb`); unlisted groups keep their defaults; wins over the legacy single `color`. Exports carry the colours |
+
+The preview response contains `consistency: {valid, problems[], checks[], not_modelled[]}`. The server checks on every preview that the drawn model **is the calculated cabinet**: overall width/height/depth, number of doors, drawer fronts, shelves and handles (against the hardware list), the size of every drawn component against the calculated part of the same name, and that no two structural components occupy the same space. Drawer boxes inside the cabinet are in the cut list but are not drawn (`not_modelled`). A seeded property test builds thousands of random valid cabinets of all four types and requires `valid: true`.
+
+That check found and fixed real problems, which are now validation rules (400 with a field error): shelves must leave at least 30 mm clear opening; kitchen base top rails may not overlap (`2 x rail_width <= depth`); a hanging rail must fit inside the cabinet; sliding panels in the same lane may not collide (`panel width > 2 x overlap` for 3+ panels). Shelves of a sliding wardrobe are now shallower so they clear both door lanes (`depth - 20 - 2 x thickness - 4 - 5`). A shelf that cuts through a wall cabinet's hanging rail is reported as a warning.
+
+### Saved furniture designs
+
+`config` (schema_version 1): `{"schema_version": 1, "input": {…calculator fields incl. cabinet_type, handle_style…}, "color": "#c9a27a", "colors": {…}, "material": <id|null>}`. On save the server rebuilds the cabinet from `input` and refuses (400, field `config`) anything that could not be built: impossible sizes, a bad `handle_style`, bad hex colours, an unknown colour group, an unsupported `schema_version`. Designs saved by older editors (seven numbers and one `color`) stay valid. `designs/{id}/model/` always recomputes the model from the saved config, so a reopened design reflects the current rules; if stored numbers no longer pass validation it answers 400 with the reason.
+
+### Pricing
+
+Add `prices` (and/or `use_catalog_prices: true`) to `calculations/material/` to get a `pricing` block. **The engine never invents a price**: anything without a price is listed in `missing[]`, `complete` is `false`, and the totals cover only the priced lines.
+
+```json
+"prices": {"currency": "UZS", "board_price_per_m2": {"MDF 18": 95000, "HDF": 30000}, "waste_factor": 0.15,
+           "edge_price_per_m": 4000, "edge_allowance": 0.05, "hardware_prices": {"Hinge": 12000, "Handle": 25000},
+           "labor_per_m2": 60000, "markup_pct": 20}
+```
+
+Board price keys are `"<MATERIAL> <thickness>"` (checked first) or `"<MATERIAL>"`. With `use_catalog_prices` the board prices are read from your own materials that have a sheet price (price per sheet / sheet area); explicit prices win; other users' materials are never read. The result lists every `lines[]` entry (`quantity x unit_price = amount`), `subtotals`, `manufacturing_cost`, `markup_amount` and `total_price`; totals are sums of the displayed amounts.
+
+### Optimizer guarantees
+
+Every `optimize/` result is re-checked by an independent routine before it is returned: all parts inside the usable area, no overlaps, saw-kerf clearance between neighbours, each piece placed exactly once with its own size, rotation only where allowed. A failed check raises an error instead of returning a layout. Results carry `validation`, `approximate: true`, `is_optimal: false`, `approximation_note` and `sheet.usable_area` (placement coordinates are relative to the area inside the trim; add `offset_x/offset_y` for sheet coordinates).
+
+## Workshops, orders and tasks
+
+A *workshop* is a tenant: its members, orders and tasks are isolated from every other workshop. Creating one needs the Furniture Maker role. Everything below is under `/api/v1/` and uses the usual conventions (Bearer auth, pagination, `{"error": ...}` envelope).
+
+**Who may do what** (checked on the server for every request; an object you may not see answers 404, one you may see but not change answers 403):
+
+| | Owner | Employee (active) | Invited / removed / stranger |
+|---|---|---|---|
+| Workshop info, status, logo | read + change | read | nothing (404) |
+| Members | list all (with emails), invite, remove, transfer ownership | list active colleagues (names only) | only own invitation row |
+| Orders | all of the workshop: create, edit, change status, delete (rules below) | read-only: orders assigned to them or containing a task assigned to them, **without money fields** | nothing |
+| Tasks | all: create, assign, edit, change any valid status, delete (rules below) | read their assigned tasks; change only the status (`pending -> in_progress -> review`, `review -> in_progress`) | nothing |
+| Statistics | yes | no (403) | nothing |
+
+An inactive workshop is read-only; a suspended one (set by platform staff in the Django admin) is frozen even for its owner. Platform staff have no special access to workshop data through these endpoints.
+
+### Workshops
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `workshops/` | workshops where you are an active member; each has `my_role`. Filters `status`; `?search=`; `?ordering=name\|created_at\|status` |
+| POST | `workshops/` | `{name, description?, phone?, email?, address?}`; you become the owner. `slug` is generated and never changes |
+| GET / PATCH | `workshops/{id}/` | PATCH owner only; `status` may be `active` or `inactive` (`suspended` is staff-only) |
+| DELETE | `workshops/{id}/` | owner only; **409** if the workshop has orders or tasks (set it `inactive` instead) |
+| GET | `workshops/{id}/statistics/` | owner only, see below |
+| POST / DELETE | `workshops/{id}/logo/` | multipart `logo` (JPG/PNG/WEBP, 10 MB, validated by decoding); `logo_url` is a 15-minute signed link |
+
+### Members and invitations
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `workshops/{id}/members/` | owner: every row incl. `invited`/`removed` (filter `status`, `role`); employees: active roster, no emails |
+| POST | `workshops/{id}/members/` | owner: `{email}` of an existing account -> `invited` employee; the person gets a notification. 400 if already a member/invited or unknown |
+| PATCH | `workshops/{id}/members/{mid}/` | **the invited person**: `{status: "active"}` accepts, `{status: "removed"}` declines; an employee leaves with `{status: "removed"}`. **owner**: `{role: "owner", confirm_transfer: true}` hands ownership to an active employee (you become an employee) |
+| DELETE | `workshops/{id}/members/{mid}/` | owner removes an employee. **Soft**: the row stays with `status: removed`, so orders, tasks and history keep pointing at it. The owner cannot be removed |
+| GET | `workshop-invitations/` | my pending invitations |
+
+A workshop always has exactly one owner (database constraints: one owner row per workshop, the owner row is always active, one membership per user and workshop). A user can be a member of many workshops with a different role in each.
+
+### Orders
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `orders/` | owner: all orders of their workshops; employee: assigned / task-linked orders. Filters `workshop, status, payment_status, assigned_employee, deadline_after, deadline_before, created_after, created_before, overdue, mine`; `?search=` over number, title, customer name and phone; `?ordering=created_at\|updated_at\|deadline\|status\|order_number\|total_price` (NULL deadlines sort last). `payment_status` filters and `total_price` sorting are limited for people who are employees somewhere: they must also pass `workshop=<a workshop you own>` |
+| POST | `orders/` | owner only: `workshop` (required), `title`, `customer_name` (required), `customer_phone/email/address`, `description`, `related_project` (your own project), `total_price`, `paid_amount`, `assigned_employee` (member id), `start_date`, `deadline` |
+| GET | `orders/{id}/` | adds `status_history[]` and `tasks_count`. Every order also carries `allowed_next_statuses[]`: the statuses the caller may move it to right now (empty for employees, final orders and read-only workshops) |
+| PATCH | `orders/{id}/` | owner only: any field above plus `status` (+ `status_note`). `workshop` cannot change |
+| DELETE | `orders/{id}/` | owner only, only `new`/`cancelled` orders **with nothing paid**; otherwise **409** (cancel instead) |
+
+`order_number` is `ORD-<workshop id>-<sequence>` (atomic per-workshop counter, unique, never reused). Money is a decimal string with 2 places; employees do not receive `total_price`, `paid_amount`, `payment_status`, `outstanding_amount` or `customer_user`.
+
+**Status lifecycle** (anything else is a 400 that lists the allowed next statuses):
+
+```
+new -> confirmed -> in_production -> ready -> delivered
+ \______\______________\___________/  (new, confirmed, in_production, ready) -> cancelled
+ready -> in_production   (rework)
+```
+
+Entering `in_production` sets `start_date` (if empty); `delivered` sets `completed_at`; `cancelled` cancels the order's open tasks in the same transaction. `delivered` and `cancelled` are final: only payment fields can still be edited. Tasks cannot be added to final orders.
+
+**Payments** (records only, no payment gateway): `payment_status` is derived from `paid_amount` (`unpaid`, `partially_paid`, `paid`); `paid_amount` may not exceed `total_price` (also a database CHECK). `payment_status: "refunded"` may be set explicitly once something was paid; the paid amount is kept as the historical record, the payment record is then closed, and the order counts as zero outstanding.
+
+### Tasks
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `tasks/` | owner: all of their workshops; employee: assigned to them. Filters `workshop, order, assigned_to` (alias `employee`), `status, priority, deadline_after, deadline_before, overdue, mine`; search over title, description, order number; ordering `created_at\|updated_at\|deadline\|priority\|status` |
+| POST | `tasks/` | owner only: `title`, `order` (workshop is taken from it) or `workshop`, `assigned_to` (active member id), `priority` (`low/medium/high/urgent`), `deadline` (future), `description` |
+| GET | `tasks/{id}/` | adds `status_history[]`. Every task carries `allowed_next_statuses[]` for the caller (owner: all valid moves; assignee: only the employee moves; nothing for read-only workshops) |
+| PATCH | `tasks/{id}/` | owner: any field + status; assignee: `status` only (anything else 403). `order` and `workshop` cannot change |
+| DELETE | `tasks/{id}/` | owner only, only tasks never started (`pending`/`cancelled`); otherwise **409** |
+
+Task lifecycle: `pending -> in_progress -> review -> completed`; owners may also complete straight from `in_progress`, send `in_progress <-> pending`/`review -> in_progress`, or cancel from any open status. `completed` and `cancelled` are final. `started_at` is set the first time work starts, `completed_at` on completion. An order's task must belong to the same workshop, and `assigned_to` must be an *active* member of it.
+
+### Statistics
+
+`GET workshops/{id}/statistics/` (owner) returns `orders` (total, per status, `completed` = delivered), `employees` (total/active/invited, owner excluded), `tasks` (total, per status, `overdue` = open and past deadline) and `money`. `money.total_order_value` sums non-cancelled orders; `paid_amount` sums paid amounts of non-refunded orders; `outstanding_amount` is total minus paid over orders that are neither cancelled nor refunded. Everything is aggregated in the database (3 aggregate queries, constant in the number of rows).
+
+```bash
+# create a workshop, invite someone, create an order and a task
+curl -X POST /api/v1/workshops/ -H "Authorization: Bearer $T" -H 'Content-Type: application/json' -d '{"name":"Samarkand Furniture"}'
+curl -X POST /api/v1/workshops/1/members/ -H "Authorization: Bearer $T" -H 'Content-Type: application/json' -d '{"email":"master@example.com"}'
+curl -X POST /api/v1/orders/ -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
+  -d '{"workshop":1,"title":"Kitchen 3.2 m","customer_name":"Ali Valiyev","total_price":"12000000","paid_amount":"3000000","deadline":"2026-12-20"}'
+curl -X PATCH /api/v1/orders/1/ -H "Authorization: Bearer $T" -H 'Content-Type: application/json' -d '{"status":"confirmed","status_note":"Deposit received"}'
+curl -X POST /api/v1/tasks/ -H "Authorization: Bearer $T" -H 'Content-Type: application/json' -d '{"order":1,"title":"Cut carcass panels","assigned_to":2,"priority":"high","deadline":"2026-12-05T17:00:00Z"}'
+curl -X PATCH /api/v1/tasks/1/ -H "Authorization: Bearer $EMPLOYEE_T" -H 'Content-Type: application/json' -d '{"status":"in_progress"}'   # the assignee reports progress
+```
+
 ## Administration (`admin-api/`, staff only, otherwise 403)
 
 `stats/`, `users/` (PATCH `is_active`, `is_staff`, `role`; cannot lock yourself out; only superusers change `is_staff`), `projects/`, `subscriptions/` (PATCH `plan_slug`), `payments/` (+ `POST {id}/confirm/` activates the plan, `{id}/reject/`), `logs/` (5xx errors), `features/` (CRUD flags), `broadcast/` (POST notification to all users), `storage/`.
+
+### Audit log (`admin-api/audit-logs/`, platform admins only, read-only)
+
+Append-only record of who did what: `actor`, `actor_email` (kept if the account is deleted), `action` (`create|update|delete|login|logout|password`), `event` (business event such as `order.status_changed`, empty for plain changes; filterable), `model` (`app.model`), `object_id`, `object_repr`, `changes` (`{field: {old, new}}` for updates), `ip`, `method`, `path`, `created_at`. Filters: `action`, `model`, `object_id`, `actor`, `actor_email`, `created_after`, `created_before`; `?search=` over email, object and path; paginated, newest first. Passwords and fields containing `password`/`token`/`secret`/`api_key` are stored as `[redacted]`; values over 200 characters are truncated. Create/update/delete are recorded automatically for users, folders, projects, materials, calculations, cutting lists, designs, gallery images, files, conversations, plans, subscriptions, payments, feature flags, **workshops, members, orders and tasks**. Workshop events: `workshop.created/updated/owner_changed/deleted`, `member.invited/accepted/declined/left/removed/role_changed`, `order.created/updated/status_changed/deleted`, `task.created/updated/assigned/status_changed/completed/deleted`. Customer phone, email and address are logged as `[redacted]` (the log shows *that* they changed, not their values). `QuerySet.update()`, `bulk_create()` and raw SQL do not send Django signals and are therefore not recorded automatically (cutting-list part replacement is recorded explicitly). Set `AUDIT_IP_HEADER=HTTP_X_REAL_IP` only behind a proxy that overwrites that header (docker-compose does); otherwise the IP is `REMOTE_ADDR`.

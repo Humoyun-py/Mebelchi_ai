@@ -9,3 +9,15 @@ export const fmtAgo = (s: string) => {
   return fmtDate(s)
 }
 export const num = (v: unknown, d = 0) => { const n = Number(v); return Number.isFinite(n) ? n : d }
+
+/** Money arrives from the API as decimal strings. The platform does not know the workshop's currency, so amounts are shown as plain grouped numbers. */
+export const fmtMoney = (v: string | number | null | undefined, currency = '') => {
+  if (v === null || v === undefined || v === '') return '-'
+  const n = Number(v)
+  if (!Number.isFinite(n)) return '-'
+  return `${n.toLocaleString(undefined, { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}${currency ? ` ${currency}` : ''}`
+}
+export const fmtDateTime = (s: string) => new Date(s).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+/** `<input type="datetime-local">` value <-> ISO string (the input works in local time, the API in UTC). */
+export const toLocalInput = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
+export const fromLocalInput = (v: string) => (v ? new Date(v).toISOString() : null)

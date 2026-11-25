@@ -1,6 +1,7 @@
 import clsx from 'clsx'
-import type { Box, CabinetInput, CalcPart } from '../lib/types'
-import { NumberField } from './ui/Field'
+import type { Box, CabinetInput, CabinetType, CalcPart } from '../lib/types'
+import { CABINET_TYPES, type TypeState } from '../lib/cabinet'
+import { NumberField, Select } from './ui/Field'
 import { DataTable, type Column } from './ui/Misc'
 import { useMeta } from '../hooks/queries'
 import { useT } from '../lib/i18n'
@@ -22,13 +23,38 @@ export function CabinetForm({ value, onChange, errors = {} }: { value: CabinetIn
   )
 }
 
-export function PartsTable({ parts }: { parts: CalcPart[] }) {
+const TYPE_LIMITS: Record<string, [number, number]> = { edge_thickness: [0, 3], plinth_height: [60, 200], sliding_overlap: [10, 100], track_top: [0, 80], track_bottom: [0, 80], rail_width: [50, 300] }
+
+export function TypeForm({ value, onChange, errors = {} }: { value: TypeState; onChange: (v: TypeState) => void; errors?: Record<string, string> }) {
+  const t = useT(); const { data: meta } = useMeta(); const LIM = { ...TYPE_LIMITS, ...(meta?.limits ?? {}) }
+  type K = Exclude<keyof TypeState, 'cabinet_type'>
+  const f = (k: K, label: string, step = 1) => (
+    <NumberField label={label} unit="mm" step={step} min={LIM[k][0]} max={LIM[k][1]} value={value[k]} onChange={(n) => onChange({ ...value, [k]: n })}
+      error={errors[k] ?? (!Number.isFinite(value[k]) ? t('f.required') : undefined)} />)
+  const ty = value.cabinet_type
+  return (
+    <div className="space-y-3">
+      <Select label={t('type.label')} value={ty} onChange={(e) => onChange({ ...value, cabinet_type: e.target.value as CabinetType })} error={errors.cabinet_type}
+        options={CABINET_TYPES.map((c) => ({ value: c, label: t(`type.${c}`) }))} />
+      {ty !== 'standard' && <p className="text-xs text-muted">{t(`type.${ty}.hint`)}</p>}
+      <div className="grid grid-cols-2 gap-3">
+        {f('edge_thickness', t('f.edgeThickness'), 0.1)}
+        {ty === 'kitchen_base' && f('plinth_height', t('f.plinth'))}
+        {(ty === 'kitchen_base' || ty === 'kitchen_wall') && f('rail_width', t('f.rail'))}
+        {ty === 'sliding_wardrobe' && <>{f('sliding_overlap', t('f.overlap'))}{f('track_top', t('f.trackTop'))}{f('track_bottom', t('f.trackBottom'))}</>}
+      </div>
+    </div>
+  )
+}
+
+export function PartsTable({ parts, showCut = false }: { parts: CalcPart[]; showCut?: boolean }) {
   const t = useT(); const partName = (n: string) => { const k = 'part.' + n; const v = t(k); return v === k ? n : v }
   const rows = parts.map((p, i) => ({ ...p, id: i }))
   const cols: Column<(typeof rows)[number]>[] = [
     { key: 'n', header: t('f.part'), className: 'whitespace-nowrap', render: (p) => <span className="font-medium">{partName(p.name)}</span> },
     { key: 'w', header: t('f.width'), className: 'num text-right', render: (p) => p.width },
     { key: 'h', header: t('f.height'), className: 'num text-right', render: (p) => p.height },
+    ...(showCut ? [{ key: 'cut', header: t('f.cutSize'), className: 'num whitespace-nowrap text-right text-primary', render: (p: CalcPart) => `${p.cut_width ?? p.width} x ${p.cut_height ?? p.height}` }] : []),
     { key: 't', header: t('f.thick'), className: 'num text-right', render: (p) => p.thickness },
     { key: 'q', header: t('f.qty'), className: 'num text-right', render: (p) => p.quantity },
     { key: 'm', header: t('f.material'), className: 'hidden sm:table-cell', render: (p) => p.material },
@@ -49,7 +75,7 @@ export function FrontView({ boxes, dims, selected, onSelect }: { boxes: Box[]; d
             stroke={selected === b.name ? 'var(--primary)' : '#0f172a'} strokeWidth={selected === b.name ? 5 : 1.5} onClick={() => onSelect?.(b)} className={onSelect ? 'cursor-pointer' : ''}>
             <title>{b.name}</title></rect>))}
       </g>
-      <g stroke="#60a5fa" strokeWidth={2} fill="#60a5fa" fontSize={Math.max(22, W / 28)} fontFamily="Geist Variable, sans-serif">
+      <g stroke="var(--primary)" strokeWidth={2} fill="var(--primary)" fontSize={Math.max(22, W / 28)} fontFamily="Geist Variable, sans-serif">
         <line x1={0} y1={H + 40} x2={W} y2={H + 40} /><text x={W / 2} y={H + 40 + Math.max(22, W / 28) + 4} textAnchor="middle" stroke="none">{W} mm</text>
         <line x1={W + 40} y1={0} x2={W + 40} y2={H} /><text x={W + 48} y={H / 2} stroke="none" transform={`rotate(90 ${W + 48} ${H / 2})`} textAnchor="middle">{H} mm</text>
       </g>

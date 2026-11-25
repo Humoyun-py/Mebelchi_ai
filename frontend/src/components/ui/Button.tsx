@@ -9,7 +9,7 @@ interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onDrag' |
   variant?: Variant; size?: Size; loading?: boolean; icon?: ReactNode
 }
 const v: Record<Variant, string> = {
-  primary: 'bg-primary text-on-primary hover:bg-primary-hover shadow-[0_0_0_1px_rgb(37_99_235/0.6),0_8px_24px_-8px_rgb(37_99_235/0.55)]',
+  primary: 'bg-primary text-on-primary hover:bg-primary-hover shadow-[0_8px_24px_-10px_var(--primary)]',
   secondary: 'bg-card2 text-fg border border-line hover:border-muted/50',
   ghost: 'text-muted hover:text-fg hover:bg-card2',
   danger: 'bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20',

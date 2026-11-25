@@ -37,6 +37,8 @@ Frontend and backend are separate applications; the only contract is REST + JWT.
 | subscriptions | `Plan`, `Subscription`, `Payment` (records only, no payment gateway) |
 | notifications | `Notification` |
 | analytics | `UsageEvent`, `SystemLog`; admin dashboard stats; feature flags |
+| workshops | `Workshop`, `WorkshopMember`, `Order`, `Task` (+ status histories); permissions, lifecycle rules, statistics |
+| audit | `AuditLog` (append-only: actor, action, object, field changes, IP); signal-based recording; admin read API |
 
 Each app: `models.py`, `serializers.py`, `views.py`, `urls.py`, `services.py`
 (where logic exists), `permissions.py` (core re-exports), `tests/`.
@@ -67,6 +69,7 @@ conversations/ (+ /{id}/messages)
 gallery/ (+ /{id}/favorite)   files/
 subscriptions/plans  subscriptions/me  subscriptions/upgrade
 notifications/ (+ /{id}/read /read-all)
+workshops/ (+ /{id}/members/ /{id}/members/{mid}/ /{id}/statistics/ /{id}/logo/)  workshop-invitations/  orders/  tasks/
 analytics/me
 admin-api/stats users/ projects/ subscriptions/ payments/ logs/ features/ storage/
 schema/  docs/   (OpenAPI via drf-spectacular)
@@ -83,7 +86,57 @@ schema/  docs/   (OpenAPI via drf-spectacular)
   back-panel fixings at ~200 mm pitch. It is not manufacturer data.
 - Optimizer: guillotine shelf packing with kerf, grain-aware rotation, several
   sort strategies, picks best by (sheets, waste). Oversized parts are reported,
-  never silently dropped.
+  never silently dropped. Every result is verified by an independent routine
+  (bounds, overlap, kerf clearance, each piece once, rotation rules) and is
+  labelled approximate, not optimal.
+- Cabinet types: `standard`, `kitchen_base` (plinth, rails, legs), `kitchen_wall`
+  (hanging rail, brackets), `sliding_wardrobe` (two alternating lanes, tracks,
+  rollers). The 3D builder reads the same `layout()` so model and parts agree.
+- Edge banding thickness produces cut sizes (finished size minus one tape per banded edge).
+- Pricing is pure arithmetic over caller-supplied prices; missing prices are
+  reported, never defaulted.
+- Audit: `AuditContextMiddleware` exposes the request (user, IP); signals on the
+  tracked models write `AuditLog` rows in the same transaction; auth events are
+  recorded explicitly.
+
+## Workshops (Phase 3)
+
+`apps/workshops` is the tenant layer for real furniture workshops. Models:
+
+```
+User 1-* WorkshopMember *-1 Workshop            (role owner|employee, status invited|active|removed; unique per user+workshop)
+Workshop 1-* Order        (PROTECT)  1-* OrderStatusChange     (append-only history)
+Workshop 1-* Task         (PROTECT)  1-* TaskStatusChange      (append-only history)
+Order 1-* Task            (CASCADE; a task may also exist without an order)
+Order *-1 WorkshopMember (assigned_employee, SET_NULL)   Task *-1 WorkshopMember (assigned_to, SET_NULL)
+Order *-1 Project (related_project, SET_NULL)            Order *-1 User (created_by, customer_user, SET_NULL)
+```
+
+Design decisions:
+
+- **People on orders/tasks are `WorkshopMember` rows, not users.** "Assigned to" therefore always means "a member of this workshop", and when an employee leaves the row stays (`status=removed`), so historical orders and tasks keep a valid reference. Nothing is deleted when somebody leaves.
+- **Business records are protected.** `Order.workshop` and `Task.workshop` are `PROTECT`; a workshop with records can only be deactivated. Orders can be deleted only while `new`/`cancelled` and unpaid. Users who authored records are kept as `SET_NULL`.
+- **Database constraints** carry the invariants that can be expressed per row or per workshop: one membership per (workshop, user); at most one owner row per workshop and the owner row must be active; `0 <= paid_amount <= total_price`; `deadline >= start_date`; unique `order_number`. Cross-row rules (a task's order and assignee belong to the task's workshop, valid status transitions, who may do what) live in `services.py` and are covered by tests; multi-step changes (create workshop + owner row, order + history, status change + task cancellation, ownership transfer) run in one transaction.
+- **Permissions are centralised** in `workshops/access.py` (visibility querysets, owner checks, writable checks) and `services.py` (rules). Related-object ids in request bodies are validated against what the caller may see, so an id that does not exist and an id of somebody else's object give the same error. Employees' serializers drop money fields.
+- **Order numbers** come from a per-workshop counter incremented by one atomic `UPDATE` (verified with 8 concurrent writers on PostgreSQL: 80 orders, no duplicates).
+- **Audit**: every workshop model is in the audit signal registry; services label their saves with an event name (`order.status_changed`, ...). Customer contact details are redacted from the log.
+- **Statistics** are database aggregates (`Count(filter=...)`, `Sum`) over the workshop's rows.
+
+### Where the commercial modules plug in
+
+Phase 3 deliberately stores only what it needs. The planned modules attach without rewriting these tables:
+
+| Future module | Attach point | Migration path |
+|---|---|---|
+| CRM (customers, contact history) | `Order.customer_*` columns (+ optional `customer_user`) | add `Customer(workshop, ...)` and `Order.customer` FK; backfill from the columns with a data migration; keep columns until the UI switches |
+| Production stages, quality control | `Task` (assignee, status, deadlines, history) and `Order` | add `ProductionStage(order, ...)`; tasks gain an optional stage FK |
+| Inventory | `Workshop` as owner of stock | `InventoryItem/Movement(workshop, ...)`; link movements to `Order`/`Task` for consumption |
+| Employee profiles, KPI | `WorkshopMember` (one row per person per workshop) | profile/KPI tables keyed by `member`; KPIs derive from `TaskStatusChange` |
+| Finance, payments | `Order.total_price/paid_amount` | `Payment(order, amount, method, ...)` rows replace the manual `paid_amount`; the order amount becomes a cached sum; `Expense(workshop, ...)` for costs |
+| Notifications | existing `notifications.notify()` (used now for invitations and task assignment) | add event hooks keyed by the audit event names |
+| Order documents, approvals | `Order` | `OrderDocument` FK; approvals as new status history rows |
+
+Not decided yet and intentionally left open: per-plan limits for workshops/members (the subscription layer can enforce them in `services.create_workshop` / `invite_member`), fine-grained employee permissions beyond owner/employee, and a staff view of workshops in the admin dashboard (Phase 8; for now staff use the Django admin, which is also where a workshop is suspended).
 
 ## Frontend (`frontend/`)
 
@@ -103,6 +156,24 @@ src/lib                              api (Axios), i18n (en/uz/ru dictionaries), 
 
 Translations live in `src/lib/i18n.ts`. A vitest parity test fails if `uz` or `ru`
 lacks a key present in `en`.
+
+## Frontend: workshops, calculator and admin (Phase 4)
+
+- **Screens**: `pages/app/Workshops.tsx` (list, create, my invitations), `pages/app/WorkshopDetail.tsx` (tabs by role: owner sees Overview/Orders/Tasks/Team/Settings, employees Orders/Tasks/Team; `?tab=` deep links never open owner-only tabs for employees). Tab bodies live in `components/workshop/`. The calculator gained cabinet types, edge tape, cut sizes and a Price tab (`components/PricingPanel.tsx`, `lib/cabinet.ts`); the optimizer result shows *Layout verified* and *Approximate result*; the Administration page has an **Audit log** tab.
+- **No business rules in the UI**: status buttons come from the server's `allowed_next_statuses`; money, statistics and totals are rendered from API values; price inputs are sent as typed and empty ones are *omitted* so the server reports them as missing; the cabinet-type size presets are only starting values that the server validates.
+- **Data freshness**: workshop queries (`hooks/workshops.ts`) always refetch on mount and window focus and poll every minute, because other people change shared data. (A real bug found by the end-to-end run: with the app-wide 15 s `staleTime` an employee kept seeing an empty order list after the owner created and assigned an order.)
+- **Dialogs** (`components/ui/Modal.tsx`) render in a portal, only the innermost dialog reacts to Escape, scroll lock lasts until the last one closes, and autofocus never steals focus from a field the user already chose.
+- **Responsive**: tables on workshop screens use `DataTable compact` and repeat status/number inside the title cell on phones; verified at 390 px with no horizontal overflow.
+- **Brand**: design tokens in `index.css` use Deep Navy `#0F172A`, Cyan `#22D3EE` and white (dark theme); the light theme uses a darker cyan so text keeps WCAG AA contrast. `lib/brand.test.ts` checks the contrast ratios.
+- **i18n**: English, Uzbek (Latin) and Russian; `i18n.parity.test.ts` and `i18n.coverage.test.ts` fail on missing keys or placeholders. Uzbek/Russian strings for the new screens should be reviewed by a native speaker.
+
+## 3D editor (Phase 5)
+
+- **One document**: `lib/editor.ts` holds the whole editable state (name, calculator input incl. cabinet type and handle style, colour groups, board, project). `toConfig/fromConfig` convert to and from the saved `Design.config` (schema_version 1, tolerant of older designs); `snapshot` powers the *Unsaved changes* indicator and the `beforeunload` warning.
+- **Server is the source of truth for geometry**: every edit goes to `geometry/preview/` (debounced) and the viewer draws exactly the returned boxes; the response carries `consistency`, the server's proof that the model equals the calculation. No dimensions are computed in the browser.
+- **Views** (`lib/editor3d.ts`, `components/three/CabinetViewer.tsx`): perspective plus front, side and top. Axis views use a 6 degree field of view (practically orthographic) with the camera distance computed so the whole cabinet fits any screen shape. Verified in real Chrome by measuring the cabinet's width/height ratio in screenshots: front 0.398 (real 0.400), side 0.205 (0.200), top 1.897 (2.000; the remainder is the door thickness and handles that stand proud of the carcass).
+- **Picking**: clicking a part selects it (highlighted, properties and its colour group in the panel); the same list is available as buttons for keyboard users. Edge outline lines are excluded from raycasting because three.js' default line threshold is 1 unit (1 m in this scene), which made every click hit the nearest outline.
+- **Layout**: three columns on wide screens (library, 3D workspace, controls); on phones the 3D view comes first, then controls, then the library.
 
 ## Phases
 

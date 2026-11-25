@@ -15,6 +15,12 @@ EXTRA_TRIALS = ((200, 60), (600, 15))
 PALETTE = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#06b6d4", "#ef4444", "#84cc16", "#ec4899", "#14b8a6", "#f97316"]
 
 
+GEOM_EPS = 0.011  # placements are rounded to 0.01 mm; this tolerance absorbs the rounding only
+METHOD = "guillotine shelf packing (heuristic)"
+APPROXIMATION_NOTE = ("Approximate result: a fast heuristic that tries several sort orders and keeps the best layout. It is not a provably "
+                      "optimal solution; a different method could occasionally use fewer sheets.")
+
+
 class OptimizerError(ValueError):
     pass
 
@@ -104,6 +110,66 @@ def _pack(items: list[Item], W: float, H: float, kerf: float, mode: str) -> list
     return sheets
 
 
+def check_placements(placements: list[dict], W: float, H: float, kerf: float) -> list[str]:
+    """Independent geometric check of one sheet. W/H are the usable sheet dimensions (inside the trim); coordinates are
+    relative to the usable area. Returns human-readable problems; an empty list means the layout is valid."""
+    problems: list[str] = []
+    for p in placements:
+        label = f"'{p.get('name', '?')}' (#{p.get('part_id', '?')})"
+        if p["w"] <= 0 or p["h"] <= 0:
+            problems.append(f"{label} has a non-positive size")
+        if p["x"] < -GEOM_EPS or p["y"] < -GEOM_EPS or p["x"] + p["w"] > W + GEOM_EPS or p["y"] + p["h"] > H + GEOM_EPS:
+            problems.append(f"{label} lies outside the usable sheet area")
+    order = sorted(range(len(placements)), key=lambda i: placements[i]["x"])
+    for pos, i in enumerate(order):
+        a = placements[i]
+        for j in order[pos + 1:]:
+            b = placements[j]
+            if b["x"] >= a["x"] + a["w"] + kerf - GEOM_EPS:
+                break  # sorted by x: nothing further right can touch `a`
+            apart_y = a["y"] + a["h"] + kerf <= b["y"] + GEOM_EPS or b["y"] + b["h"] + kerf <= a["y"] + GEOM_EPS
+            if apart_y:
+                continue
+            intersects = (a["x"] < b["x"] + b["w"] - GEOM_EPS and b["x"] < a["x"] + a["w"] - GEOM_EPS
+                          and a["y"] < b["y"] + b["h"] - GEOM_EPS and b["y"] < a["y"] + a["h"] - GEOM_EPS)
+            what = "overlap" if intersects else f"are closer than the {kerf:g} mm saw kerf"
+            problems.append(f"'{a['name']}' (#{a['part_id']}) and '{b['name']}' (#{b['part_id']}) {what}")
+    return problems
+
+
+def verify_result(result: dict) -> list[str]:
+    """Re-checks a finished optimize() result (also usable on stored results): bounds, overlaps and kerf clearance per sheet."""
+    sh = result["sheet"]
+    W, H = sh["length"] - 2 * sh["trim"], sh["width"] - 2 * sh["trim"]
+    problems: list[str] = []
+    for s in result["sheets"]:
+        problems += [f"sheet {s['index']}: {p}" for p in check_placements(s["placements"], W, H, sh["kerf"])]
+    return problems
+
+
+def _verify_packing(sheets: list[Sheet], items: list[Item], W: float, H: float, kerf: float) -> list[str]:
+    """Geometry plus bookkeeping: every input piece placed exactly once, with its own size and only rotated when allowed."""
+    problems: list[str] = []
+    by_uid = {it.uid: it for it in items}
+    seen: dict[int, int] = {}
+    for si, s in enumerate(sheets, 1):
+        problems += [f"sheet {si}: {p}" for p in check_placements(s.placements, W, H, kerf)]
+        for pl in s.placements:
+            it = by_uid.get(pl["part_id"])
+            if it is None:
+                problems.append(f"sheet {si}: unknown piece #{pl['part_id']}")
+                continue
+            seen[it.uid] = seen.get(it.uid, 0) + 1
+            expected = (it.across, it.along) if pl["rotated"] else (it.along, it.across)
+            if pl["rotated"] and not it.can_rotate:
+                problems.append(f"'{it.name}' (#{it.uid}) is rotated although rotation is not allowed")
+            if abs(pl["w"] - expected[0]) > GEOM_EPS or abs(pl["h"] - expected[1]) > GEOM_EPS:
+                problems.append(f"'{it.name}' (#{it.uid}) was placed with the wrong size")
+    problems += [f"piece '{it.name}' (#{it.uid}) was not placed" for it in items if it.uid not in seen]
+    problems += [f"piece #{uid} was placed {n} times" for uid, n in seen.items() if n > 1]
+    return problems
+
+
 def optimize(parts: list[dict], sheet_length: float, sheet_width: float, kerf: float = 3.0, trim: float = 10.0,
              allow_rotation: bool = True, trials: int | None = None) -> dict:
     """parts: [{id?, name, width, height, quantity, can_rotate?}] (mm). Returns layout + statistics."""
@@ -168,6 +234,11 @@ def optimize(parts: list[dict], sheet_length: float, sheet_width: float, kerf: f
             order.sort(key=lambda it: -(it.across // band))
             consider(order, "long_along" if i % 2 == 0 else "any")
 
+    if best_sheets:
+        problems = _verify_packing(best_sheets, items, W, H, kerf)
+        if problems:  # a bug in the packer must never reach the user as a plausible-looking layout
+            raise OptimizerError("Internal layout check failed: " + "; ".join(problems[:5]))
+
     names = sorted({p.get("name", "") for p in parts})
     color_of = {n: PALETTE[i % len(PALETTE)] for i, n in enumerate(names)}
     for s_ in best_sheets or []:
@@ -195,7 +266,8 @@ def optimize(parts: list[dict], sheet_length: float, sheet_width: float, kerf: f
                   "note": "usable strip remaining across the full length of the last sheet (before trim)"}
         offcut["area_m2"] = round(offcut["length"] * max(offcut["width"], 0) / 1e6, 4)
     return {
-        "sheet": {"length": sheet_length, "width": sheet_width, "kerf": kerf, "trim": trim, "allow_rotation": allow_rotation},
+        "sheet": {"length": sheet_length, "width": sheet_width, "kerf": kerf, "trim": trim, "allow_rotation": allow_rotation,
+                  "usable_area": {"length": W, "width": H, "offset_x": trim, "offset_y": trim}},
         "sheets": out_sheets,
         "summary": {
             "sheet_count": n,
@@ -209,6 +281,12 @@ def optimize(parts: list[dict], sheet_length: float, sheet_width: float, kerf: f
         },
         "legend": legend,
         "unplaced": unplaced,
+        "method": METHOD,
+        "approximate": True,
+        "is_optimal": False,
+        "approximation_note": APPROXIMATION_NOTE,
+        "validation": {"valid": True, "checks": ["inside_usable_area", "no_overlap", "kerf_clearance", "every_piece_placed_once",
+                                                 "piece_sizes_and_rotation"], "pieces_checked": len(items)},
         "requires_professional_review": True,
         "disclaimer": "Cutting layout for professional review. Verify grain direction, defects and machine limits before cutting.",
     }

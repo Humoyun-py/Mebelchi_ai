@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import type { CabinetInput, CalcResult, GeometryResult, Meta, Page, Project, Template, WorkspaceSummary, Material } from '../lib/types'
+import type { CabinetInput, CalcRequest, CalcResult, GeometryResult, Meta, Page, Project, Template, WorkspaceSummary, Material } from '../lib/types'
 
 /** Debounces by *value* (JSON), not identity: callers often pass fresh objects every render, which would otherwise reset the timer forever. */
 export function useDebounced<T>(value: T, ms = 350): T {
@@ -26,7 +26,7 @@ export function useGeometry(input: CabinetInput, color?: string, enabled = true)
     queryFn: async () => (await api.post<GeometryResult>('/geometry/preview/', { ...d.input, ...(d.color ? { color: d.color } : {}) })).data,
   })
 }
-export function useCalculation(input: CabinetInput, enabled = true) {
+export function useCalculation(input: CalcRequest, enabled = true) {
   const d = useDebounced(input, 350)
   return useQuery({ queryKey: ['calc', d], enabled, placeholderData: keepPreviousData, retry: false, staleTime: 60000,
     queryFn: async () => (await api.post<CalcResult>('/calculations/material/', d)).data })

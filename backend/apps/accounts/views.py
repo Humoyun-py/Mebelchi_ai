@@ -13,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from apps.analytics.services import feature_enabled
+from apps.audit import services as audit
 from apps.core.throttles import AuthRateThrottle
 from apps.notifications.services import notify
 from apps.subscriptions.services import ensure_subscription
@@ -63,6 +64,7 @@ class LogoutView(APIView):
             RefreshToken(s.validated_data["refresh"]).blacklist()
         except TokenError:
             pass
+        audit.record("logout", model="users.user", object_id=request.user.pk, object_repr=request.user.email)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -97,6 +99,7 @@ class PasswordResetConfirmView(APIView):
             raise ValidationError({"new_password": list(e.messages)})
         user.set_password(s.validated_data["new_password"])
         user.save(update_fields=["password"])
+        audit.record("password", model="users.user", object_id=user.pk, object_repr=user.email, changes={"via": "password reset"}, actor=user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -137,4 +140,5 @@ class GoogleLoginView(APIView):
         elif not user.is_active:
             raise PermissionDenied("This account is disabled.")
         refresh = RefreshToken.for_user(user)
+        audit.record("login", model="users.user", object_id=user.pk, object_repr=user.email, changes={"via": "google"}, actor=user)
         return Response({"user": UserSerializer(user).data, "access": str(refresh.access_token), "refresh": str(refresh), "created": created})

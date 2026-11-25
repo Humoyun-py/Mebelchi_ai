@@ -8,24 +8,28 @@ from rest_framework.views import APIView
 
 from apps.analytics.services import track
 from apps.calculations import engine
-from apps.calculations.serializers import CabinetInputSerializer
+from apps.calculations.serializers import ENGINE_KEYS, CabinetInputSerializer
 from apps.core.throttles import ExportRateThrottle
 from apps.subscriptions.services import enforce_export_limit
 
-from . import builder, exporters
+from . import builder, colors as colorlib, exporters
 
 FORMATS = {"glb": ("model/gltf-binary", exporters.to_glb), "gltf": ("model/gltf+json", exporters.to_gltf), "obj": ("text/plain", exporters.to_obj)}
 
 
-def _build(request):
+def _build(request, verify=False):
     s = CabinetInputSerializer(data=request.data)
     s.is_valid(raise_exception=True)
-    d = {k: v for k, v in s.validated_data.items() if k not in ("save", "name", "project")}
+    d = {k: v for k, v in s.validated_data.items() if k in ENGINE_KEYS}
     color = request.data.get("color")
     if color is not None and not (isinstance(color, str) and len(color) == 7 and color.startswith("#") and all(c in "0123456789abcdefABCDEF" for c in color[1:])):
         raise ValidationError({"color": "Must be a hex colour like #c9a27a."})
     try:
-        return builder.build_cabinet(d, color)
+        paint = colorlib.clean_colors(request.data.get("colors"))
+    except ValueError as e:
+        raise ValidationError({"colors": str(e)})
+    try:
+        return builder.build_cabinet(d, color, paint, verify=verify)
     except engine.EngineValidationError as e:
         raise ValidationError(e.errors)
 
@@ -38,7 +42,7 @@ class PreviewView(APIView):
 
     @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def post(self, request):
-        return Response(_build(request))
+        return Response(_build(request, verify=True))
 
 
 class ExportView(APIView):

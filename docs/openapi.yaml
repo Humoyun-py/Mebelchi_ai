@@ -5,6 +5,118 @@ info:
   description: Furniture design, calculation and production automation. No external
     AI services.
 paths:
+  /api/v1/admin-api/audit-logs/:
+    get:
+      operationId: admin_api_audit_logs_list
+      description: 'Platform administrators only. Read-only: audit entries cannot
+        be changed or deleted through the API.'
+      parameters:
+      - in: query
+        name: action
+        schema:
+          type: string
+          enum:
+          - create
+          - delete
+          - login
+          - logout
+          - password
+          - update
+        description: |-
+          * `create` - Created
+          * `update` - Updated
+          * `delete` - Deleted
+          * `login` - Logged in
+          * `logout` - Logged out
+          * `password` - Password changed
+      - in: query
+        name: actor
+        schema:
+          type: integer
+      - in: query
+        name: actor_email
+        schema:
+          type: string
+      - in: query
+        name: created_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: created_before
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: event
+        schema:
+          type: string
+      - in: query
+        name: model
+        schema:
+          type: string
+      - in: query
+        name: object_id
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+          description: ''
+  /api/v1/admin-api/audit-logs/{id}/:
+    get:
+      operationId: admin_api_audit_logs_retrieve
+      description: 'Platform administrators only. Read-only: audit entries cannot
+        be changed or deleted through the API.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this audit log.
+        required: true
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+          description: ''
   /api/v1/admin-api/broadcast/:
     post:
       operationId: admin_api_broadcast_create
@@ -618,23 +730,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminSubscription'
-          description: ''
-  /api/v1/admin-api/system/:
-    get:
-      operationId: admin_api_system_retrieve
-      description: Operational status for the admin panel. Never includes secrets
-        or connection strings.
-      tags:
-      - admin-api
-      security:
-      - jwtAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: {}
           description: ''
   /api/v1/admin-api/users/:
     get:
@@ -1805,6 +1900,52 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/designs/{id}/duplicate/:
+    post:
+      operationId: designs_duplicate_create
+      description: Scopes every query to the requesting user and stamps owner on create.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this design.
+        required: true
+      tags:
+      - designs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Design'
+          description: ''
+  /api/v1/designs/{id}/model/:
+    get:
+      operationId: designs_model_retrieve
+      description: The 3D model and the calculation, rebuilt from the saved config
+        (never from stale stored numbers).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this design.
+        required: true
+      tags:
+      - designs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/files/:
     get:
       operationId: files_list
@@ -2937,6 +3078,252 @@ paths:
               schema:
                 $ref: '#/components/schemas/Notification'
           description: ''
+  /api/v1/orders/:
+    get:
+      operationId: orders_list
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: query
+        name: assigned_employee
+        schema:
+          type: integer
+      - in: query
+        name: created_after
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: created_before
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: deadline_after
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: deadline_before
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: mine
+        schema:
+          type: boolean
+        description: assigned to me
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - in: query
+        name: overdue
+        schema:
+          type: boolean
+        description: deadline passed and the order is not delivered or cancelled
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: payment_status
+        schema:
+          type: string
+          enum:
+          - paid
+          - partially_paid
+          - refunded
+          - unpaid
+        description: |-
+          * `unpaid` - Unpaid
+          * `partially_paid` - Partially paid
+          * `paid` - Paid
+          * `refunded` - Refunded
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - cancelled
+          - confirmed
+          - delivered
+          - in_production
+          - new
+          - ready
+        description: |-
+          * `new` - New
+          * `confirmed` - Confirmed
+          * `in_production` - In production
+          * `ready` - Ready
+          * `delivered` - Delivered
+          * `cancelled` - Cancelled
+      - in: query
+        name: workshop
+        schema:
+          type: integer
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrderList'
+          description: ''
+    post:
+      operationId: orders_create
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Order'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Order'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/v1/orders/{id}/:
+    get:
+      operationId: orders_retrieve
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this order.
+        required: true
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+          description: ''
+    put:
+      operationId: orders_update
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this order.
+        required: true
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Order'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Order'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+    patch:
+      operationId: orders_partial_update
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this order.
+        required: true
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOrder'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOrder'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOrder'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+    delete:
+      operationId: orders_destroy
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this order.
+        required: true
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/projects/:
     get:
       operationId: projects_list
@@ -3378,158 +3765,155 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
-  /api/v1/telegram/bot/admin/broadcast/:
-    post:
-      operationId: telegram_bot_admin_broadcast_create
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/admin/stats/:
+  /api/v1/tasks/:
     get:
-      operationId: telegram_bot_admin_stats_retrieve
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/admin/system/:
-    get:
-      operationId: telegram_bot_admin_system_retrieve
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/calculate/:
-    post:
-      operationId: telegram_bot_calculate_create
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/cutting-lists/:
-    post:
-      operationId: telegram_bot_cutting_lists_create
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/cutting-lists/{id}/export/{kind}/:
-    get:
-      operationId: telegram_bot_cutting_lists_export_retrieve
+      operationId: tasks_list
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
       parameters:
-      - in: path
-        name: id
+      - in: query
+        name: assigned_to
         schema:
           type: integer
-        required: true
-      - in: path
-        name: kind
+      - in: query
+        name: deadline_after
         schema:
           type: string
-        required: true
+          format: date-time
+      - in: query
+        name: deadline_before
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: employee
+        schema:
+          type: integer
+        description: alias of assigned_to (a member id)
+      - in: query
+        name: mine
+        schema:
+          type: boolean
+        description: assigned to me
+      - in: query
+        name: order
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - in: query
+        name: overdue
+        schema:
+          type: boolean
+        description: deadline passed and the task is still open
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: priority
+        schema:
+          type: string
+          enum:
+          - high
+          - low
+          - medium
+          - urgent
+        description: |-
+          * `low` - Low
+          * `medium` - Medium
+          * `high` - High
+          * `urgent` - Urgent
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - cancelled
+          - completed
+          - in_progress
+          - pending
+          - review
+        description: |-
+          * `pending` - Pending
+          * `in_progress` - In progress
+          * `review` - Review
+          * `completed` - Completed
+          * `cancelled` - Cancelled
+      - in: query
+        name: workshop
+        schema:
+          type: integer
       tags:
-      - telegram
+      - tasks
+      security:
+      - jwtAuth: []
       responses:
         '200':
-          description: No response body
-  /api/v1/telegram/bot/files/:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTaskList'
+          description: ''
     post:
-      operationId: telegram_bot_files_create
+      operationId: tasks_create
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
       tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/link/:
-    post:
-      operationId: telegram_bot_link_create
-      tags:
-      - telegram
+      - tasks
       requestBody:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: {}
+              $ref: '#/components/schemas/Task'
           application/x-www-form-urlencoded:
             schema:
-              type: object
-              additionalProperties: {}
+              $ref: '#/components/schemas/Task'
           multipart/form-data:
             schema:
-              type: object
-              additionalProperties: {}
+              $ref: '#/components/schemas/Task'
+        required: true
+      security:
+      - jwtAuth: []
       responses:
-        '200':
+        '201':
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: {}
+                $ref: '#/components/schemas/Task'
           description: ''
-  /api/v1/telegram/bot/me/:
+  /api/v1/tasks/{id}/:
     get:
-      operationId: telegram_bot_me_retrieve
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/notifications/:
-    get:
-      operationId: telegram_bot_notifications_retrieve
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/projects/:
-    get:
-      operationId: telegram_bot_projects_retrieve
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-    post:
-      operationId: telegram_bot_projects_create
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/projects/{id}/:
-    patch:
-      operationId: telegram_bot_projects_partial_update
+      operationId: tasks_retrieve
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
       parameters:
       - in: path
         name: id
         schema:
           type: integer
+        description: A unique integer value identifying this task.
         required: true
       tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/bot/unlink/:
-    post:
-      operationId: telegram_bot_unlink_create
-      tags:
-      - telegram
-      responses:
-        '200':
-          description: No response body
-  /api/v1/telegram/link-code/:
-    post:
-      operationId: telegram_link_code_create
-      tags:
-      - telegram
+      - tasks
       security:
       - jwtAuth: []
       responses:
@@ -3537,14 +3921,33 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: {}
+                $ref: '#/components/schemas/TaskDetail'
           description: ''
-  /api/v1/telegram/status/:
-    get:
-      operationId: telegram_status_retrieve
+    put:
+      operationId: tasks_update
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this task.
+        required: true
       tags:
-      - telegram
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Task'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Task'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Task'
+        required: true
       security:
       - jwtAuth: []
       responses:
@@ -3552,13 +3955,54 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: {}
+                $ref: '#/components/schemas/Task'
+          description: ''
+    patch:
+      operationId: tasks_partial_update
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this task.
+        required: true
+      tags:
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTask'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTask'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTask'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
           description: ''
     delete:
-      operationId: telegram_status_destroy
+      operationId: tasks_destroy
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this task.
+        required: true
       tags:
-      - telegram
+      - tasks
       security:
       - jwtAuth: []
       responses:
@@ -3759,6 +4203,505 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/v1/workshop-invitations/:
+    get:
+      operationId: workshop_invitations_list
+      description: My pending invitations to join workshops.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - workshop-invitations
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvitationList'
+          description: ''
+  /api/v1/workshops/:
+    get:
+      operationId: workshops_list
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - inactive
+          - suspended
+        description: |-
+          * `active` - Active
+          * `inactive` - Inactive
+          * `suspended` - Suspended
+      tags:
+      - workshops
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWorkshopList'
+          description: ''
+    post:
+      operationId: workshops_create
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+  /api/v1/workshops/{id}/:
+    get:
+      operationId: workshops_retrieve
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - workshops
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+    put:
+      operationId: workshops_update
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+    patch:
+      operationId: workshops_partial_update
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkshop'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkshop'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkshop'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+    delete:
+      operationId: workshops_destroy
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - workshops
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workshops/{id}/logo/:
+    post:
+      operationId: workshops_logo_create
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Logo'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Logo'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Logo'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: workshops_logo_destroy
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - workshops
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workshops/{id}/logo-file/:
+    get:
+      operationId: workshops_logo_file_retrieve
+      description: Public but bound to one workshop by a short-lived signature (so
+        <img> works without headers).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - workshops
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/workshops/{id}/statistics/:
+    get:
+      operationId: workshops_statistics_retrieve
+      description: Business-rule conflicts (e.g. deleting a record that must be kept)
+        are answered with 409.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - workshops
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/workshops/{workshop_pk}/members/:
+    get:
+      operationId: workshops_members_list
+      description: |-
+        /workshops/{workshop_pk}/members/. Owners invite and remove; every member sees the (name-only) roster; an invited
+        person answers their own invitation by PATCHing their member row with status=active (accept) or status=removed (decline/leave).
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - employee
+          - owner
+        description: |-
+          * `owner` - Owner
+          * `employee` - Employee
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - invited
+          - removed
+        description: |-
+          * `invited` - Invited
+          * `active` - Active
+          * `removed` - Removed
+      - in: path
+        name: workshop_pk
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        required: true
+      tags:
+      - workshops
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMemberList'
+          description: ''
+    post:
+      operationId: workshops_members_create
+      description: |-
+        /workshops/{workshop_pk}/members/. Owners invite and remove; every member sees the (name-only) roster; an invited
+        person answers their own invitation by PATCHing their member row with status=active (accept) or status=removed (decline/leave).
+      parameters:
+      - in: path
+        name: workshop_pk
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        required: true
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Invite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Invite'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+          description: ''
+  /api/v1/workshops/{workshop_pk}/members/{id}/:
+    patch:
+      operationId: workshops_members_partial_update
+      description: |-
+        /workshops/{workshop_pk}/members/. Owners invite and remove; every member sees the (name-only) roster; an invited
+        person answers their own invitation by PATCHing their member row with status=active (accept) or status=removed (decline/leave).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop member.
+        required: true
+      - in: path
+        name: workshop_pk
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        required: true
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMemberUpdate'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+          description: ''
+    delete:
+      operationId: workshops_members_destroy
+      description: |-
+        /workshops/{workshop_pk}/members/. Owners invite and remove; every member sees the (name-only) roster; an invited
+        person answers their own invitation by PATCHing their member row with status=active (accept) or status=removed (decline/leave).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop member.
+        required: true
+      - in: path
+        name: workshop_pk
+        schema:
+          type: string
+          pattern: ^[0-9]+$
+        required: true
+      tags:
+      - workshops
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/workspace/summary/:
     get:
       operationId: workspace_summary_retrieve
@@ -3777,6 +4720,22 @@ paths:
           description: ''
 components:
   schemas:
+    ActionEnum:
+      enum:
+      - create
+      - update
+      - delete
+      - login
+      - logout
+      - password
+      type: string
+      description: |-
+        * `create` - Created
+        * `update` - Updated
+        * `delete` - Deleted
+        * `login` - Logged in
+        * `logout` - Logged out
+        * `password` - Password changed
     AdminPayment:
       type: object
       properties:
@@ -3943,6 +4902,75 @@ components:
       - last_name
       - plan
       - project_count
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        actor:
+          type: integer
+          readOnly: true
+          nullable: true
+        actor_email:
+          type: string
+          readOnly: true
+          description: Kept even if the account is deleted later; empty for system
+            actions.
+        action:
+          allOf:
+          - $ref: '#/components/schemas/ActionEnum'
+          readOnly: true
+        action_label:
+          type: string
+          readOnly: true
+        event:
+          type: string
+          readOnly: true
+          description: Business event name, e.g. order.status_changed; empty for plain
+            create/update/delete
+        model:
+          type: string
+          readOnly: true
+          description: app_label.model
+        object_id:
+          type: string
+          readOnly: true
+        object_repr:
+          type: string
+          readOnly: true
+        changes:
+          readOnly: true
+          description: '{field: {old, new}} for updates; sensitive values are redacted'
+        ip:
+          type: string
+          readOnly: true
+          nullable: true
+        method:
+          type: string
+          readOnly: true
+        path:
+          type: string
+          readOnly: true
+      required:
+      - action
+      - action_label
+      - actor
+      - actor_email
+      - changes
+      - created_at
+      - event
+      - id
+      - ip
+      - method
+      - model
+      - object_id
+      - object_repr
+      - path
     Avatar:
       type: object
       properties:
@@ -3955,6 +4983,8 @@ components:
       - ''
     CabinetInput:
       type: object
+      description: Engine parameters shared by every endpoint that takes a cabinet.
+        New fields are optional and default to the old behaviour.
       properties:
         width:
           type: number
@@ -3990,6 +5020,60 @@ components:
           type: string
           default: HDF
           maxLength: 20
+        cabinet_type:
+          allOf:
+          - $ref: '#/components/schemas/CabinetTypeEnum'
+          default: standard
+        edge_thickness:
+          type: number
+          format: double
+          default: 0.0
+          description: mm of edge tape; 0 = cut sizes equal finished sizes
+        plinth_height:
+          type: number
+          format: double
+          default: 100.0
+          description: kitchen_base only
+        sliding_overlap:
+          type: number
+          format: double
+          default: 30.0
+          description: sliding_wardrobe only
+        track_top:
+          type: number
+          format: double
+          default: 35.0
+          description: sliding_wardrobe only
+        track_bottom:
+          type: number
+          format: double
+          default: 20.0
+          description: sliding_wardrobe only
+        rail_width:
+          type: number
+          format: double
+          default: 100.0
+          description: kitchen_base top rails / kitchen_wall hanging rail
+        handle_style:
+          allOf:
+          - $ref: '#/components/schemas/HandleStyleEnum'
+          default: bar
+          description: |-
+            bar | knob | none (none removes handles from the hardware list)
+
+            * `bar` - bar
+            * `knob` - knob
+            * `none` - none
+        prices:
+          allOf:
+          - $ref: '#/components/schemas/PriceList'
+          writeOnly: true
+        use_catalog_prices:
+          type: boolean
+          writeOnly: true
+          default: false
+          description: fill board prices from the sheet prices of your materials (explicit
+            prices win)
         save:
           type: boolean
           writeOnly: true
@@ -4006,6 +5090,18 @@ components:
       - depth
       - height
       - width
+    CabinetTypeEnum:
+      enum:
+      - standard
+      - kitchen_base
+      - kitchen_wall
+      - sliding_wardrobe
+      type: string
+      description: |-
+        * `standard` - standard
+        * `kitchen_base` - kitchen_base
+        * `kitchen_wall` - kitchen_wall
+        * `sliding_wardrobe` - sliding_wardrobe
     Calculation:
       type: object
       properties:
@@ -4330,6 +5426,49 @@ components:
       - size_bytes
       - url
       - width
+    HandleStyleEnum:
+      enum:
+      - bar
+      - knob
+      - none
+      type: string
+      description: |-
+        * `bar` - bar
+        * `knob` - knob
+        * `none` - none
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        workshop:
+          type: string
+          readOnly: true
+        invited_by:
+          type: string
+          readOnly: true
+        role:
+          $ref: '#/components/schemas/Role71aEnum'
+        status:
+          $ref: '#/components/schemas/StatusC62Enum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - invited_by
+      - workshop
+    Invite:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
     LanguageEnum:
       enum:
       - en
@@ -4391,6 +5530,13 @@ components:
       required:
       - email
       - password
+    Logo:
+      type: object
+      properties:
+        logo:
+          type: string
+          format: uri
+          nullable: true
     Logout:
       type: object
       properties:
@@ -4454,6 +5600,65 @@ components:
         * `PLYWOOD` - Plywood
         * `HDF` - HDF
         * `SOLID` - Solid wood
+    Member:
+      type: object
+      description: '`owned_workshop_ids` is computed once per request by the view
+        (a set of workshop ids the user owns).'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        workshop:
+          type: integer
+          readOnly: true
+        user:
+          type: string
+          readOnly: true
+        role:
+          allOf:
+          - $ref: '#/components/schemas/Role71aEnum'
+          readOnly: true
+          default: employee
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusC62Enum'
+          readOnly: true
+        joined_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        removed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - joined_at
+      - removed_at
+      - role
+      - status
+      - updated_at
+      - user
+      - workshop
+    MemberUpdateStatusEnum:
+      enum:
+      - active
+      - removed
+      type: string
+      description: |-
+        * `active` - active
+        * `removed` - removed
     Message:
       type: object
       properties:
@@ -4523,6 +5728,267 @@ components:
       - level
       - read
       - title
+    Order:
+      type: object
+      description: '`owned_workshop_ids` is computed once per request by the view
+        (a set of workshop ids the user owns).'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+        workshop:
+          type: integer
+        customer_name:
+          type: string
+          maxLength: 160
+        customer_phone:
+          type: string
+          maxLength: 32
+        customer_email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        customer_address:
+          type: string
+          maxLength: 255
+        customer_user:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Optional platform account of the customer
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        related_project:
+          type: integer
+          nullable: true
+        project:
+          type: string
+          readOnly: true
+        total_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        paid_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        outstanding_amount:
+          type: string
+          readOnly: true
+        payment_status:
+          $ref: '#/components/schemas/PaymentStatusEnum'
+        status:
+          $ref: '#/components/schemas/Status2adEnum'
+        status_note:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        allowed_next_statuses:
+          type: string
+          readOnly: true
+        assigned_employee:
+          type: integer
+          nullable: true
+        assigned_employee_detail:
+          type: string
+          readOnly: true
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        deadline:
+          type: string
+          format: date
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - allowed_next_statuses
+      - assigned_employee_detail
+      - completed_at
+      - created_at
+      - created_by
+      - customer_name
+      - customer_user
+      - id
+      - order_number
+      - outstanding_amount
+      - project
+      - title
+      - updated_at
+    OrderDetail:
+      type: object
+      description: '`owned_workshop_ids` is computed once per request by the view
+        (a set of workshop ids the user owns).'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+        workshop:
+          type: integer
+        customer_name:
+          type: string
+          maxLength: 160
+        customer_phone:
+          type: string
+          maxLength: 32
+        customer_email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        customer_address:
+          type: string
+          maxLength: 255
+        customer_user:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Optional platform account of the customer
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        related_project:
+          type: integer
+          nullable: true
+        project:
+          type: string
+          readOnly: true
+        total_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        paid_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        outstanding_amount:
+          type: string
+          readOnly: true
+        payment_status:
+          $ref: '#/components/schemas/PaymentStatusEnum'
+        status:
+          $ref: '#/components/schemas/Status2adEnum'
+        status_note:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        allowed_next_statuses:
+          type: string
+          readOnly: true
+        assigned_employee:
+          type: integer
+          nullable: true
+        assigned_employee_detail:
+          type: string
+          readOnly: true
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        deadline:
+          type: string
+          format: date
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        status_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderStatusChange'
+          readOnly: true
+        tasks_count:
+          type: string
+          readOnly: true
+      required:
+      - allowed_next_statuses
+      - assigned_employee_detail
+      - completed_at
+      - created_at
+      - created_by
+      - customer_name
+      - customer_user
+      - id
+      - order_number
+      - outstanding_amount
+      - project
+      - status_history
+      - tasks_count
+      - title
+      - updated_at
+    OrderStatusChange:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        from_status:
+          type: string
+          maxLength: 14
+        to_status:
+          type: string
+          maxLength: 14
+        changed_by:
+          type: string
+          readOnly: true
+        note:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - changed_by
+      - created_at
+      - id
+      - to_status
     PaginatedAdminPaymentList:
       type: object
       required:
@@ -4615,6 +6081,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AdminUser'
+    PaginatedAuditLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
     PaginatedCalculationList:
       type: object
       required:
@@ -4730,6 +6219,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GalleryImage'
+    PaginatedInvitationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invitation'
     PaginatedLogList:
       type: object
       required:
@@ -4753,6 +6265,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Log'
+    PaginatedMemberList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
     PaginatedNotificationList:
       type: object
       required:
@@ -4776,6 +6311,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Notification'
+    PaginatedOrderList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
     PaginatedProjectList:
       type: object
       required:
@@ -4799,6 +6357,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Project'
+    PaginatedTaskList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
     PaginatedUserFileList:
       type: object
       required:
@@ -4822,6 +6403,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UserFile'
+    PaginatedWorkshopList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workshop'
     PasswordChange:
       type: object
       properties:
@@ -5116,6 +6720,16 @@ components:
         is_system:
           type: boolean
           readOnly: true
+    PatchedMemberUpdate:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/Role71aEnum'
+        status:
+          $ref: '#/components/schemas/MemberUpdateStatusEnum'
+        confirm_transfer:
+          type: boolean
+          default: false
     PatchedMessage:
       type: object
       properties:
@@ -5137,6 +6751,104 @@ components:
           - $ref: '#/components/schemas/FeedbackEnum'
           - $ref: '#/components/schemas/BlankEnum'
         created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedOrder:
+      type: object
+      description: '`owned_workshop_ids` is computed once per request by the view
+        (a set of workshop ids the user owns).'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+        workshop:
+          type: integer
+        customer_name:
+          type: string
+          maxLength: 160
+        customer_phone:
+          type: string
+          maxLength: 32
+        customer_email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        customer_address:
+          type: string
+          maxLength: 255
+        customer_user:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Optional platform account of the customer
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        related_project:
+          type: integer
+          nullable: true
+        project:
+          type: string
+          readOnly: true
+        total_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        paid_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        outstanding_amount:
+          type: string
+          readOnly: true
+        payment_status:
+          $ref: '#/components/schemas/PaymentStatusEnum'
+        status:
+          $ref: '#/components/schemas/Status2adEnum'
+        status_note:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        allowed_next_statuses:
+          type: string
+          readOnly: true
+        assigned_employee:
+          type: integer
+          nullable: true
+        assigned_employee_detail:
+          type: string
+          readOnly: true
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        deadline:
+          type: string
+          format: date
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
           type: string
           format: date-time
           readOnly: true
@@ -5195,6 +6907,71 @@ components:
         counts:
           type: string
           readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedTask:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        workshop:
+          type: integer
+        order:
+          type: integer
+          nullable: true
+        order_number:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        assigned_to:
+          type: integer
+          nullable: true
+        assigned_to_detail:
+          type: string
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        status:
+          $ref: '#/components/schemas/Status909Enum'
+        status_note:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        allowed_next_statuses:
+          type: string
+          readOnly: true
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        is_overdue:
+          type: string
+          readOnly: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -5281,6 +7058,67 @@ components:
           type: string
           format: date-time
           readOnly: true
+    PatchedWorkshop:
+      type: object
+      description: '`owned_workshop_ids` is computed once per request by the view
+        (a set of workshop ids the user owns).'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        owner:
+          type: string
+          readOnly: true
+        phone:
+          type: string
+          maxLength: 32
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        address:
+          type: string
+          maxLength: 255
+        logo_url:
+          type: string
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/WorkshopStatusEnum'
+        my_role:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PaymentStatusEnum:
+      enum:
+      - unpaid
+      - partially_paid
+      - paid
+      - refunded
+      type: string
+      description: |-
+        * `unpaid` - Unpaid
+        * `partially_paid` - Partially paid
+        * `paid` - Paid
+        * `refunded` - Refunded
     Plan:
       type: object
       properties:
@@ -5318,6 +7156,70 @@ components:
       - name
       - slug
       - storage_mb
+    PriceList:
+      type: object
+      description: Prices are always supplied by the caller or read from the user's
+        material catalogue; the engine never invents one.
+      properties:
+        currency:
+          type: string
+          default: ''
+          maxLength: 8
+        board_price_per_m2:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+            minimum: 0
+          description: 'e.g. {"MDF 18": 95000, "HDF": 30000}; key = material or "material
+            thickness"'
+        waste_factor:
+          type: number
+          format: double
+          maximum: 0.6
+          minimum: 0
+          default: 0.15
+        edge_price_per_m:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+        edge_allowance:
+          type: number
+          format: double
+          maximum: 0.5
+          minimum: 0
+          default: 0.05
+        hardware_prices:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+            minimum: 0
+          description: 'unit price per hardware name, e.g. {"Hinge": 12000}'
+        labor_per_m2:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+        markup_pct:
+          type: number
+          format: double
+          maximum: 300
+          minimum: 0
+          default: 0.0
+    PriorityEnum:
+      enum:
+      - low
+      - medium
+      - high
+      - urgent
+      type: string
+      description: |-
+        * `low` - Low
+        * `medium` - Medium
+        * `high` - High
+        * `urgent` - Urgent
     Project:
       type: object
       properties:
@@ -5423,6 +7325,14 @@ components:
           $ref: '#/components/schemas/Role899Enum'
       required:
       - role
+    Role71aEnum:
+      enum:
+      - owner
+      - employee
+      type: string
+      description: |-
+        * `owner` - Owner
+        * `employee` - Employee
     Role899Enum:
       enum:
       - maker
@@ -5453,6 +7363,233 @@ components:
       description: |-
         * `active` - Active
         * `archived` - Archived
+    Status2adEnum:
+      enum:
+      - new
+      - confirmed
+      - in_production
+      - ready
+      - delivered
+      - cancelled
+      type: string
+      description: |-
+        * `new` - New
+        * `confirmed` - Confirmed
+        * `in_production` - In production
+        * `ready` - Ready
+        * `delivered` - Delivered
+        * `cancelled` - Cancelled
+    Status909Enum:
+      enum:
+      - pending
+      - in_progress
+      - review
+      - completed
+      - cancelled
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `in_progress` - In progress
+        * `review` - Review
+        * `completed` - Completed
+        * `cancelled` - Cancelled
+    StatusC62Enum:
+      enum:
+      - invited
+      - active
+      - removed
+      type: string
+      description: |-
+        * `invited` - Invited
+        * `active` - Active
+        * `removed` - Removed
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        workshop:
+          type: integer
+        order:
+          type: integer
+          nullable: true
+        order_number:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        assigned_to:
+          type: integer
+          nullable: true
+        assigned_to_detail:
+          type: string
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        status:
+          $ref: '#/components/schemas/Status909Enum'
+        status_note:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        allowed_next_statuses:
+          type: string
+          readOnly: true
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        is_overdue:
+          type: string
+          readOnly: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - allowed_next_statuses
+      - assigned_to_detail
+      - completed_at
+      - created_at
+      - created_by
+      - id
+      - is_overdue
+      - order_number
+      - started_at
+      - title
+      - updated_at
+    TaskDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        workshop:
+          type: integer
+        order:
+          type: integer
+          nullable: true
+        order_number:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        assigned_to:
+          type: integer
+          nullable: true
+        assigned_to_detail:
+          type: string
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        status:
+          $ref: '#/components/schemas/Status909Enum'
+        status_note:
+          type: string
+          writeOnly: true
+          maxLength: 255
+        allowed_next_statuses:
+          type: string
+          readOnly: true
+        deadline:
+          type: string
+          format: date-time
+          nullable: true
+        is_overdue:
+          type: string
+          readOnly: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        status_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskStatusChange'
+          readOnly: true
+      required:
+      - allowed_next_statuses
+      - assigned_to_detail
+      - completed_at
+      - created_at
+      - created_by
+      - id
+      - is_overdue
+      - order_number
+      - started_at
+      - status_history
+      - title
+      - updated_at
+    TaskStatusChange:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        from_status:
+          type: string
+          maxLength: 12
+        to_status:
+          type: string
+          maxLength: 12
+        changed_by:
+          type: string
+          readOnly: true
+        note:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - changed_by
+      - created_at
+      - id
+      - to_status
     Template:
       type: object
       properties:
@@ -5606,6 +7743,74 @@ components:
         * `document` - Document
         * `model` - 3D model
         * `other` - Other
+    Workshop:
+      type: object
+      description: '`owned_workshop_ids` is computed once per request by the view
+        (a set of workshop ids the user owns).'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        description:
+          type: string
+        owner:
+          type: string
+          readOnly: true
+        phone:
+          type: string
+          maxLength: 32
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        address:
+          type: string
+          maxLength: 255
+        logo_url:
+          type: string
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/WorkshopStatusEnum'
+        my_role:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - logo_url
+      - my_role
+      - name
+      - owner
+      - slug
+      - updated_at
+    WorkshopStatusEnum:
+      enum:
+      - active
+      - inactive
+      - suspended
+      type: string
+      description: |-
+        * `active` - Active
+        * `inactive` - Inactive
+        * `suspended` - Suspended
   securitySchemes:
     jwtAuth:
       type: http

@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from django.utils import timezone
 
+from apps.audit import services as audit
 from apps.core.signing import verify_file
 
 from .models import User
@@ -72,6 +73,7 @@ class PasswordChangeView(APIView):
         s.is_valid(raise_exception=True)
         request.user.set_password(s.validated_data["new_password"])
         request.user.save(update_fields=["password"])
+        audit.record("password", model="users.user", object_id=request.user.pk, object_repr=request.user.email, changes={"via": "password change"})
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

@@ -64,11 +64,12 @@ export function Pagination({ page, count, pageSize, onPage }: { page: number; co
 }
 
 export interface Column<T> { key: string; header: string; render: (row: T) => ReactNode; className?: string }
-export function DataTable<T extends { id: number | string }>({ columns, rows, empty, onRowClick }: { columns: Column<T>[]; rows: T[]; empty?: ReactNode; onRowClick?: (row: T) => void }) {
+/** `compact` lets the table shrink to the screen (cells wrap) instead of scrolling sideways; use it when the columns hide themselves on small screens. */
+export function DataTable<T extends { id: number | string }>({ columns, rows, empty, onRowClick, compact }: { columns: Column<T>[]; rows: T[]; empty?: ReactNode; onRowClick?: (row: T) => void; compact?: boolean }) {
   if (!rows.length && empty) return <>{empty}</>
   return (
     <div className="overflow-x-auto rounded-[14px] border border-line bg-card">
-      <table className="w-full min-w-[32rem] text-sm">
+      <table className={clsx('w-full text-sm', !compact && 'min-w-[32rem]')}>
         <thead><tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
           {columns.map((c) => <th key={c.key} scope="col" className={clsx('px-4 py-3 font-medium', c.className)}>{c.header}</th>)}</tr></thead>
         <tbody>{rows.map((r) => (

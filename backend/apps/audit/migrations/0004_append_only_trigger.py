@@ -35,6 +35,6 @@ def remove_triggers(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("audit", "0001_initial")]
+    dependencies = [("audit", "0003_actor_without_db_constraint")]
 
     operations = [migrations.RunPython(apply_triggers, remove_triggers)]
