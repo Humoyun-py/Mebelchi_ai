@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from apps.analytics.services import track
 from apps.calculations import engine
-from apps.calculations.serializers import CabinetInputSerializer
+from apps.calculations.serializers import ENGINE_KEYS, CabinetInputSerializer
 from apps.core.throttles import ExportRateThrottle
 from apps.subscriptions.services import enforce_export_limit
 
@@ -20,7 +20,7 @@ FORMATS = {"glb": ("model/gltf-binary", exporters.to_glb), "gltf": ("model/gltf+
 def _build(request):
     s = CabinetInputSerializer(data=request.data)
     s.is_valid(raise_exception=True)
-    d = {k: v for k, v in s.validated_data.items() if k not in ("save", "name", "project")}
+    d = {k: v for k, v in s.validated_data.items() if k in ENGINE_KEYS}
     color = request.data.get("color")
     if color is not None and not (isinstance(color, str) and len(color) == 7 and color.startswith("#") and all(c in "0123456789abcdefABCDEF" for c in color[1:])):
         raise ValidationError({"color": "Must be a hex colour like #c9a27a."})

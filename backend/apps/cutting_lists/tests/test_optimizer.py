@@ -88,3 +88,114 @@ class ExtraTrialTests(SimpleTestCase):
         big = [dict(name="X", width=300 + (i % 7) * 40, height=500 + (i % 5) * 90, quantity=40, can_rotate=True) for i in range(12)]
         t = time.time(); r = optimize(big, 2800, 2070); self.assertLess(time.time() - t, 5)
         self.assertEqual(sum(len(s["placements"]) for s in r["sheets"]), 480)
+
+
+# ------------------------------------------------------------------ Phase 2: independent layout verification
+import random
+from unittest import mock
+
+from apps.cutting_lists import optimizer as opt
+
+
+def pl(pid, x, y, w, h, name="p"):
+    return {"part_id": pid, "name": name, "x": x, "y": y, "w": w, "h": h, "rotated": False}
+
+
+class LayoutCheckTests(SimpleTestCase):
+    W, H = 1000, 500
+
+    def check(self, *placements, kerf=3):
+        return opt.check_placements(list(placements), self.W, self.H, kerf)
+
+    def test_valid_layout_has_no_problems(self):
+        self.assertEqual(self.check(pl(1, 0, 0, 400, 200), pl(2, 403, 0, 400, 200), pl(3, 0, 203, 400, 200)), [])
+
+    def test_overlap_is_detected(self):
+        problems = self.check(pl(1, 0, 0, 400, 200), pl(2, 300, 100, 400, 200))
+        self.assertTrue(any("overlap" in p for p in problems), problems)
+
+    def test_kerf_clearance_is_enforced_in_both_directions(self):
+        self.assertTrue(any("kerf" in p for p in self.check(pl(1, 0, 0, 400, 200), pl(2, 401, 0, 100, 100))))      # 1 mm gap in x
+        self.assertTrue(any("kerf" in p for p in self.check(pl(1, 0, 0, 400, 200), pl(2, 0, 201, 100, 100))))      # 1 mm gap in y
+        self.assertEqual(self.check(pl(1, 0, 0, 400, 200), pl(2, 400, 0, 100, 100), kerf=0), [])                    # touching is fine without kerf
+
+    def test_outside_the_sheet_is_detected(self):
+        for bad in (pl(1, -5, 0, 100, 100), pl(1, 0, -5, 100, 100), pl(1, 950, 0, 100, 100), pl(1, 0, 450, 100, 100)):
+            self.assertTrue(any("outside" in p for p in self.check(bad)), bad)
+
+    def test_exactly_on_the_edge_is_inside(self):
+        self.assertEqual(self.check(pl(1, 600, 300, 400, 200)), [])
+
+    def test_zero_size_is_rejected(self):
+        self.assertTrue(self.check(pl(1, 0, 0, 0, 100)))
+
+    def test_order_of_placements_does_not_matter(self):
+        a, b = pl(1, 0, 0, 400, 200), pl(2, 100, 50, 400, 200)
+        self.assertEqual(len(self.check(a, b)), len(self.check(b, a)))
+
+    def test_verify_result_catches_a_tampered_result(self):
+        r = optimize(OptimizerTests.parts, 2800, 2070)
+        self.assertEqual(opt.verify_result(r), [])
+        r["sheets"][0]["placements"][1].update(x=r["sheets"][0]["placements"][0]["x"], y=r["sheets"][0]["placements"][0]["y"])
+        self.assertTrue(opt.verify_result(r))
+
+
+class OptimizerGuaranteeTests(SimpleTestCase):
+    def test_result_declares_itself_approximate_and_valid(self):
+        r = optimize(OptimizerTests.parts, 2800, 2070)
+        self.assertTrue(r["approximate"])
+        self.assertFalse(r["is_optimal"])
+        self.assertIn("not a provably optimal", r["approximation_note"])
+        self.assertTrue(r["validation"]["valid"])
+        self.assertEqual(r["validation"]["pieces_checked"], 10)
+        self.assertEqual(r["sheet"]["usable_area"], {"length": 2780, "width": 2050, "offset_x": 10, "offset_y": 10})
+
+    def test_random_jobs_are_always_valid(self):
+        rng = random.Random(20261125)
+        for _ in range(120):
+            parts = [dict(name=f"P{i}", width=rng.randint(40, 1200), height=rng.randint(40, 2600), quantity=rng.randint(1, 6),
+                          can_rotate=rng.random() < 0.5) for i in range(rng.randint(1, 8))]
+            kerf, trim = rng.choice([0, 2, 3, 4.5]), rng.choice([0, 5, 10, 20])
+            r = optimize(parts, 2800, 2070, kerf=kerf, trim=trim, allow_rotation=rng.random() < 0.8)
+            self.assertEqual(opt.verify_result(r), [], (parts, kerf, trim))
+            placed = sum(len(s["placements"]) for s in r["sheets"])
+            self.assertEqual(placed + len(r["unplaced"]), sum(p["quantity"] for p in parts))
+
+    def test_rotation_never_happens_unless_allowed(self):
+        rng = random.Random(7)
+        for _ in range(40):
+            parts = [dict(name=f"P{i}", width=rng.randint(100, 900), height=rng.randint(100, 1900), quantity=rng.randint(1, 4)) for i in range(5)]
+            r = optimize(parts, 2800, 2070)
+            self.assertTrue(all(not p["rotated"] for s in r["sheets"] for p in s["placements"]))
+
+    def test_a_broken_packer_cannot_return_an_invalid_layout(self):
+        def broken(items, W, H, kerf, mode):
+            s = opt.Sheet()
+            for it in items:  # every piece on top of each other
+                s.placements.append({"part_id": it.uid, "name": it.name, "x": 0, "y": 0, "w": it.along, "h": it.across, "rotated": False})
+            return [s]
+        with mock.patch.object(opt, "_pack", broken):
+            with self.assertRaises(OptimizerError) as cm:
+                optimize([dict(name="A", width=300, height=600, quantity=2)], 2800, 2070)
+        self.assertIn("layout check failed", str(cm.exception))
+
+    def test_a_packer_that_loses_a_piece_is_caught(self):
+        real = opt._pack
+
+        def lossy(items, W, H, kerf, mode):
+            return real(items[:-1], W, H, kerf, mode)
+        with mock.patch.object(opt, "_pack", lossy):
+            with self.assertRaises(OptimizerError) as cm:
+                optimize([dict(name="A", width=300, height=600, quantity=3)], 2800, 2070)
+        self.assertIn("not placed", str(cm.exception))
+
+    def test_a_rotated_piece_that_may_not_rotate_is_caught(self):
+        def rotating(items, W, H, kerf, mode):
+            s = opt.Sheet()
+            for it in items:
+                s.placements.append({"part_id": it.uid, "name": it.name, "x": 0, "y": 0, "w": it.across, "h": it.along, "rotated": True})
+            return [s]
+        with mock.patch.object(opt, "_pack", rotating):
+            with self.assertRaises(OptimizerError) as cm:
+                optimize([dict(name="A", width=300, height=600, quantity=1)], 2800, 2070)
+        self.assertIn("rotation is not allowed", str(cm.exception))

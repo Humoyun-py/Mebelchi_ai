@@ -10,13 +10,14 @@ from apps.analytics.services import track
 from apps.projects.models import Project
 
 from . import engine
+from .pricing import catalog_board_prices
 from .models import Calculation
 from .serializers import CabinetInputSerializer, CalculationSerializer
 
 
-def run_engine(data: dict) -> dict:
+def run_engine(data: dict, prices: dict | None = None) -> dict:
     try:
-        return engine.calculate(data)
+        return engine.calculate(data, prices)
     except engine.EngineValidationError as e:
         raise ValidationError(e.errors)
 
@@ -30,7 +31,11 @@ class MaterialCalculationView(APIView):
         s.is_valid(raise_exception=True)
         d = dict(s.validated_data)
         save, name, project_id = d.pop("save"), d.pop("name", None), d.pop("project", None)
-        result = run_engine(d)
+        prices, use_catalog = d.pop("prices", None), d.pop("use_catalog_prices", False)
+        if use_catalog:
+            prices = dict(prices or {})
+            prices["board_price_per_m2"] = {**catalog_board_prices(request.user), **(prices.get("board_price_per_m2") or {})}
+        result = run_engine(d, dict(prices) if prices is not None else None)
         track(request.user, "calculation", area=result["summary"]["total_area_m2"])
         if save:
             project = None

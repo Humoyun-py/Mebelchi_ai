@@ -63,6 +63,8 @@ INSTALLED_APPS = [
     "apps.subscriptions",
     "apps.notifications",
     "apps.analytics",
+    "apps.audit",
+    "apps.workshops",
 ]
 
 MIDDLEWARE = [
@@ -74,6 +76,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.audit.middleware.AuditContextMiddleware",
     "apps.analytics.middleware.RequestLogMiddleware",
 ]
 
@@ -209,6 +212,10 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
 CORS_ALLOW_CREDENTIALS = False  # JWT in Authorization header, no cookies
+
+# Audit log: request header that carries the real client IP. Set to HTTP_X_REAL_IP only when every request passes through the
+# nginx proxy (docker-compose does this); otherwise keep REMOTE_ADDR so clients cannot forge it.
+AUDIT_IP_HEADER = env("AUDIT_IP_HEADER", "REMOTE_ADDR")
 
 # Email (console in dev)
 EMAIL_BACKEND = env("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")

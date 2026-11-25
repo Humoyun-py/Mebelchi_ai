@@ -2,6 +2,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from apps.audit import services as audit
 from apps.users.models import User
 from apps.users.serializers import UserSerializer
 
@@ -35,6 +36,7 @@ class LoginSerializer(TokenObtainPairSerializer):
         attrs["email"] = attrs.get("email", "").lower()
         data = super().validate(attrs)
         data["user"] = UserSerializer(self.user).data
+        audit.record("login", model="users.user", object_id=self.user.pk, object_repr=self.user.email, actor=self.user)
         return data
 
 

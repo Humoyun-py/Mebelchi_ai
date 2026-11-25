@@ -143,9 +143,11 @@ Boshqa narsalar (erkin dizayn maslahati, chizma yoki eskizni o'qish) uchun muhar
 }
 PART = {
     "uz": {"Side panel": "Yon devor", "Top panel": "Usti", "Bottom panel": "Osti", "Shelf": "Tokcha", "Back panel": "Orqa devor (HDF)", "Door": "Eshik",
-           "Drawer front": "Yashik fasadi", "Drawer side": "Yashik yoni", "Drawer back": "Yashik orqasi", "Drawer inner front": "Yashik old devori", "Drawer bottom": "Yashik tagi"},
+           "Drawer front": "Yashik fasadi", "Drawer side": "Yashik yoni", "Drawer back": "Yashik orqasi", "Drawer inner front": "Yashik old devori", "Drawer bottom": "Yashik tagi",
+           "Front top rail": "Old usti plankasi", "Rear top rail": "Orqa usti plankasi", "Plinth": "Sokol", "Hanging rail": "Osish plankasi", "Sliding door": "Surma eshik"},
     "ru": {"Side panel": "Боковина", "Top panel": "Верх", "Bottom panel": "Низ", "Shelf": "Полка", "Back panel": "Задняя стенка (ХДФ)", "Door": "Дверь",
-           "Drawer front": "Фасад ящика", "Drawer side": "Бок ящика", "Drawer back": "Задник ящика", "Drawer inner front": "Передняя стенка ящика", "Drawer bottom": "Дно ящика"},
+           "Drawer front": "Фасад ящика", "Drawer side": "Бок ящика", "Drawer back": "Задник ящика", "Drawer inner front": "Передняя стенка ящика", "Drawer bottom": "Дно ящика",
+           "Front top rail": "Передняя верхняя планка", "Rear top rail": "Задняя верхняя планка", "Plinth": "Цоколь", "Hanging rail": "Навесная планка", "Sliding door": "Раздвижная дверь"},
 }
 EDGE = {
     "uz": {"front edge (1 x height)": "old qirra (1 x bo'yi)", "front edge (1 x width)": "old qirra (1 x eni)", "no edge banding": "kromkasiz", "all 4 edges": "4 qirra",

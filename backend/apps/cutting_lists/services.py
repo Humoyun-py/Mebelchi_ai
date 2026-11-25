@@ -53,6 +53,11 @@ def run_optimization(cl: CuttingList, allow_rotation: bool = True) -> Optimizati
                     "waste_pct": round(100 * (1 - tot_parts_area / tot_sheet_area), 2) if tot_sheet_area else 0,
                     "estimated_cost": round(tot_cost, 2) if cost_known else None, "unplaced_count": len(unplaced)},
         "unplaced": unplaced,
+        "method": optimizer.METHOD,
+        "approximate": True,
+        "is_optimal": False,
+        "approximation_note": optimizer.APPROXIMATION_NOTE,
+        "validation": {"valid": all(g["result"]["validation"]["valid"] for g in out), "groups_checked": len(out)},
         "requires_professional_review": True,
         "disclaimer": "Cutting layout for professional review. Verify grain direction, defects and machine limits before cutting.",
     }
