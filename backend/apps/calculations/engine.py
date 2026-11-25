@@ -27,6 +27,7 @@ LIMITS = {
 }
 
 CABINET_TYPES = ("standard", "kitchen_base", "kitchen_wall", "sliding_wardrobe")
+HANDLE_STYLES = ("bar", "knob", "none")
 
 DOOR_GAP = 3          # between doors
 DOOR_EDGE_GAP = 2     # door to carcass edge
@@ -71,6 +72,7 @@ class CabinetInput:
     track_top: float = 35            # sliding_wardrobe
     track_bottom: float = 20         # sliding_wardrobe
     rail_width: float = 100          # kitchen_base top rails, kitchen_wall hanging rail
+    handle_style: str = "bar"        # bar | knob | none (none = handleless; the hardware list then has no handles)
 
     @classmethod
     def from_dict(cls, d: dict) -> "CabinetInput":
@@ -127,6 +129,8 @@ def _num(inp: CabinetInput):
             raise EngineValidationError({k: "must be a whole number"})
     if inp.cabinet_type not in CABINET_TYPES:
         raise EngineValidationError({"cabinet_type": f"must be one of: {', '.join(CABINET_TYPES)}"})
+    if inp.handle_style not in HANDLE_STYLES:
+        raise EngineValidationError({"handle_style": f"must be one of: {', '.join(HANDLE_STYLES)}"})
 
 
 def layout(inp: CabinetInput) -> dict:
@@ -165,6 +169,17 @@ def layout(inp: CabinetInput) -> dict:
     return {"inner_w": inner_w, "inner_h": inner_h, "levels": levels, "slot_h": slot_h,
             "drawer_front_h": drawer_front_h, "drawers_zone": drawers_zone,
             "door_w": door_w, "door_h": door_h, "door_y": door_y, "body_h": body_h, "base_y": base_y}
+
+
+def _shelf_hits_hanging_rail(inp: CabinetInput, lay: dict) -> bool:
+    """Shelves sit at equal slot boundaries; one collides with the hanging rail when it lies inside the rail's height band."""
+    t = inp.thickness
+    rail_lo, rail_hi = inp.height - t - inp.rail_width, inp.height - t
+    for i in range(inp.drawers + 1, lay["levels"]):
+        y = lay["base_y"] + t + lay["slot_h"] * i - t / 2
+        if y < rail_hi and y + t > rail_lo:
+            return True
+    return False
 
 
 def validate(inp: CabinetInput) -> list[str]:
@@ -210,6 +225,9 @@ def validate(inp: CabinetInput) -> list[str]:
         errors["width"] = "too narrow for drawers"
     if sliding and inp.depth < 2 * t + SLIDING_FRONT_SETBACK + 2 * SLIDING_LANE_GAP + 50:
         errors["depth"] = "too shallow for two sliding lanes"
+    if sliding and inp.doors >= 3 and lay["door_w"] <= 2 * inp.sliding_overlap:
+        # panels k and k+2 share a lane; they would touch or overlap in plan
+        errors["sliding_overlap"] = "too large for this number of panels (panels in the same lane would collide)"
     if errors:
         raise EngineValidationError(errors)
 
@@ -229,6 +247,8 @@ def validate(inp: CabinetInput) -> list[str]:
         warnings.append("Back thickness above 6 mm is unusual for HDF.")
     if inp.depth < 250 and inp.shelves:
         warnings.append("Very shallow carcass; check shelf usability.")
+    if inp.cabinet_type == "kitchen_wall" and _shelf_hits_hanging_rail(inp, lay):
+        warnings.append("A shelf position collides with the hanging rail at the top; reduce the shelves or the rail width, or notch the shelf.")
     if inp.cabinet_type == "kitchen_wall" and inp.depth > WALL_MAX_DEPTH:
         warnings.append(f"Wall cabinet depth {inp.depth:g} mm exceeds {WALL_MAX_DEPTH} mm; check the wall fixing capacity and reach.")
     return warnings
@@ -300,7 +320,8 @@ def hardware(inp: CabinetInput) -> list[dict]:
             per += 1
         add("Hinge", per * inp.doors, f"{per} per door (door height {h:.0f} mm, width {lay['door_w']:.0f} mm)")
     add("Drawer slide (pair)", inp.drawers, "1 pair per drawer")
-    add("Handle", inp.doors + inp.drawers, "1 per door and per drawer front")
+    if inp.handle_style != "none":
+        add("Handle", inp.doors + inp.drawers, "1 per door and per drawer front" + (" (knob)" if inp.handle_style == "knob" else ""))
     add("Shelf pin", 4 * inp.shelves, "4 per adjustable shelf")
     if inp.cabinet_type == "kitchen_base":
         add("Adjustable leg", 4 + (2 if inp.width > 900 else 0), "4 corner legs, +2 centre legs when wider than 900 mm")
@@ -350,6 +371,10 @@ def assumptions_for(inp: CabinetInput) -> list[str]:
     out = list(ASSUMPTIONS) + TYPE_ASSUMPTIONS.get(inp.cabinet_type, [])
     if inp.edge_thickness:
         out.append(EDGE_ASSUMPTION)
+    if inp.handle_style == "none":
+        out.append("Handleless design: no handles are included in the hardware list or the 3D model.")
+    elif inp.handle_style == "knob":
+        out.append("Knob handles: one knob per door and per drawer front.")
     return out
 
 
