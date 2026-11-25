@@ -8,9 +8,20 @@ from .models import AuditLog
 logger = logging.getLogger(__name__)
 
 
-def record(action: str, *, model: str = "", object_id="", object_repr: str = "", changes: dict | None = None, actor=None, event: str = ""):
+def _action_for_event(event: str) -> str:
+    tail = event.rsplit(".", 1)[-1]
+    return "create" if tail.endswith("created") else "delete" if tail.endswith("deleted") else "update"
+
+
+def record(action: str, *, model: str = "", object_id="", object_repr: str = "", changes: dict | None = None, actor=None, event: str = "",
+           target_type=None, target_id=None):
     """Writes one audit row. `actor` defaults to the authenticated user of the current request. Failures are logged and never raised into the caller.
     business logic *unless* the surrounding transaction fails: auditing problems are logged, not swallowed silently."""
+    # Compatibility with the older call style record("user.role_changed", actor=..., target_type="user", target_id=7): a dotted first
+    # argument is a business event name, and target_type/target_id are model/object_id.
+    if "." in action:
+        event, action = event or action, _action_for_event(action)
+    model, object_id = model or (target_type or ""), object_id or (target_id if target_id is not None else "")
     ctx = context.get_context()
     actor = actor if actor is not None else ctx.get("actor")
     try:

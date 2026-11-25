@@ -3,6 +3,7 @@ import datetime
 from django.utils import timezone
 
 from apps.core.tests.helpers import client_for, make_user
+from apps.users.models import User
 from apps.workshops.models import Order, Task, Workshop, WorkshopMember
 
 API = "/api/v1/"
@@ -19,10 +20,21 @@ def hours(n):
     return timezone.now() + datetime.timedelta(hours=n)
 
 
-def make_workshop(owner, name="Alpha Workshop"):
-    """Creates a workshop through the API (so the real service path is used)."""
+def as_workshop(user):
+    """A platform administrator gives the account the Workshop role (only they can); done directly here."""
+    User.objects.filter(pk=user.pk).update(role="workshop")
+    user.role = "workshop"
+    return user
+
+
+def make_workshop(owner, name="Alpha Workshop", approve=True):
+    """Creates a workshop through the API (so the real service path is used). New workshops are pending; `approve` plays the administrator."""
+    as_workshop(owner)
     r = client_for(owner).post(WS, {"name": name}, format="json")
     assert r.status_code == 201, r.data
+    assert r.data["status"] == "pending"
+    if approve:
+        Workshop.objects.filter(pk=r.data["id"]).update(status="active")
     return Workshop.objects.get(pk=r.data["id"])
 
 

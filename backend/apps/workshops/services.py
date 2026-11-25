@@ -76,12 +76,14 @@ def _unique_slug(name: str) -> str:
 
 
 def create_workshop(user: User, data: dict) -> Workshop:
-    if not (user.role == User.Role.MAKER or user.is_staff):
-        raise PermissionDenied("Only accounts with the Furniture Maker role can create a workshop. Switch your role in the settings first.")
+    if user.role != User.Role.WORKSHOP:
+        raise PermissionDenied("Only accounts with the Workshop role can create a workshop. A platform administrator assigns that role; "
+                               "being an administrator does not replace it.")
+    data = {k: v for k, v in data.items() if k != "status"}          # a new workshop is always pending, whatever the request says
     for attempt in range(3):
         try:
             with transaction.atomic():
-                ws = Workshop(owner=user, slug=_unique_slug(data["name"]), **data)
+                ws = Workshop(owner=user, slug=_unique_slug(data["name"]), status=Workshop.Status.PENDING, **data)
                 save_with_event(ws, "workshop.created")
                 M.objects.create(workshop=ws, user=user, role=M.Role.OWNER, status=M.Status.ACTIVE, joined_at=timezone.now())
                 return ws
@@ -95,9 +97,27 @@ def update_workshop(ws: Workshop, actor: User, data: dict) -> Workshop:
     access.require_owner(actor, ws)
     if ws.status == Workshop.Status.SUSPENDED:
         raise PermissionDenied("This workshop is suspended. Contact the platform administrators.")
+    if "status" in data and ws.status not in (Workshop.Status.ACTIVE, Workshop.Status.INACTIVE):
+        raise PermissionDenied("The status of a workshop that is waiting for approval is set by platform administrators.")
     for k, v in data.items():
         setattr(ws, k, v)
     save_with_event(ws, "workshop.updated")
+    return ws
+
+
+def review_workshop(ws: Workshop, actor: User, target: str) -> Workshop:
+    """Platform administrators approve, suspend or reactivate a workshop (the views check that the caller is staff)."""
+    allowed = {Workshop.Status.ACTIVE: {Workshop.Status.PENDING, Workshop.Status.SUSPENDED, Workshop.Status.INACTIVE},
+               Workshop.Status.SUSPENDED: {Workshop.Status.ACTIVE, Workshop.Status.INACTIVE}}
+    if ws.status not in allowed.get(target, set()):
+        raise err("status", f"Cannot change status from '{ws.status}' to '{target}'.")
+    previous = ws.status
+    ws.status = target
+    event = "workshop.approved" if previous == Workshop.Status.PENDING else "workshop.suspended" if target == Workshop.Status.SUSPENDED else "workshop.reactivated"
+    with transaction.atomic():
+        save_with_event(ws, event)
+    notify(ws.owner, {"workshop.approved": "Your workshop was approved", "workshop.suspended": "Your workshop was suspended",
+                      "workshop.reactivated": "Your workshop was reactivated"}[event], ws.name, "success" if target == Workshop.Status.ACTIVE else "warning")
     return ws
 
 

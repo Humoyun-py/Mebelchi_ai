@@ -10,4 +10,5 @@ router.register("workshops", views.WorkshopViewSet, basename="workshop")
 router.register("orders", views.OrderViewSet, basename="order")
 router.register("tasks", views.TaskViewSet, basename="task")
 
-urlpatterns = [path("workshops/<int:pk>/logo-file/", views.WorkshopLogoFileView.as_view())] + router.urls
+urlpatterns = [path("workshops/me/", views.WorkshopMeView.as_view()),
+               path("workshops/<int:pk>/logo-file/", views.WorkshopLogoFileView.as_view())] + router.urls

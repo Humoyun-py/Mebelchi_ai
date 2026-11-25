@@ -2,8 +2,27 @@ from django.conf import settings
 from django.db import models
 
 
+class AppendOnlyError(PermissionError):
+    """Raised when code tries to change or delete an audit row."""
+
+
+class AppendOnlyQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise AppendOnlyError("audit log rows cannot be updated")
+
+    def delete(self):
+        raise AppendOnlyError("audit log rows cannot be deleted")
+
+    def bulk_update(self, *args, **kwargs):
+        raise AppendOnlyError("audit log rows cannot be updated")
+
+
 class AuditLog(models.Model):
-    """Append-only record of who did what to which object. Rows are never updated or deleted by the application."""
+    """Append-only record of who did what to which object. The application never updates or deletes rows, and on PostgreSQL a
+    trigger (migration 0004) refuses UPDATE, DELETE and TRUNCATE even for raw SQL.
+
+    `actor` is a foreign key *without* a database constraint and with DO_NOTHING: deleting an account must never rewrite history
+    (that would be an UPDATE), so the id stays and `actor_email` is the readable snapshot."""
 
     class Action(models.TextChoices):
         CREATE = "create", "Created"
@@ -14,7 +33,7 @@ class AuditLog(models.Model):
         PASSWORD = "password", "Password changed"
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.DO_NOTHING, db_constraint=False, related_name="+")
     actor_email = models.CharField(max_length=254, blank=True, help_text="Kept even if the account is deleted later; empty for system actions.")
     action = models.CharField(max_length=10, choices=Action.choices)
     event = models.CharField(max_length=40, blank=True, db_index=True,
@@ -27,6 +46,8 @@ class AuditLog(models.Model):
     method = models.CharField(max_length=8, blank=True)
     path = models.CharField(max_length=255, blank=True)
 
+    objects = AppendOnlyQuerySet.as_manager()
+
     class Meta:
         ordering = ["-created_at", "-id"]
         indexes = [
@@ -37,11 +58,11 @@ class AuditLog(models.Model):
 
     def save(self, *args, **kwargs):
         if self.pk and not self._state.adding:
-            raise PermissionError("Audit log entries are immutable.")
+            raise AppendOnlyError("Audit log entries are immutable.")
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        raise PermissionError("Audit log entries cannot be deleted.")
+        raise AppendOnlyError("Audit log entries cannot be deleted.")
 
     def __str__(self):
         return f"{self.created_at:%Y-%m-%d %H:%M} {self.actor_email or 'system'} {self.action} {self.model}#{self.object_id}"

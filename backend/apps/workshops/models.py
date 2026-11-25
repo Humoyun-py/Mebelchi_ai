@@ -20,12 +20,19 @@ MONEY = dict(max_digits=12, decimal_places=2)
 
 
 class Workshop(models.Model):
+    class Kind(models.TextChoices):
+        INDIVIDUAL = "individual", "Individual master"
+        WORKSHOP = "workshop", "Workshop"
+
     class Status(models.TextChoices):
-        ACTIVE = "active", "Active"
-        INACTIVE = "inactive", "Inactive"
-        SUSPENDED = "suspended", "Suspended"
+        PENDING = "pending", "Pending approval"     # every new workshop starts here; a platform administrator approves it
+        ACTIVE = "active", "Active"                 # approved and operating
+        INACTIVE = "inactive", "Inactive"           # paused by its owner (read-only)
+        SUSPENDED = "suspended", "Suspended"        # frozen by a platform administrator
 
     name = models.CharField(max_length=120)
+    kind = models.CharField(max_length=12, choices=Kind.choices, default=Kind.WORKSHOP)
+    city = models.CharField(max_length=80, blank=True)
     slug = models.SlugField(max_length=140, unique=True)
     description = models.TextField(blank=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="owned_workshops")
@@ -33,7 +40,7 @@ class Workshop(models.Model):
     email = models.EmailField(blank=True)
     address = models.CharField(max_length=255, blank=True)
     logo = models.ImageField(upload_to="workshops/", blank=True, validators=[validate_image])
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     # Last issued order sequence number. Incremented with a single atomic UPDATE (see services.next_order_number).
     order_counter = models.PositiveIntegerField(default=0, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)

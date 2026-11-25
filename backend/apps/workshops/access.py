@@ -48,8 +48,9 @@ def require_owner(user, workshop):
 def require_writable(workshop):
     """Inactive and suspended workshops are read-only for everybody."""
     if workshop.status != Workshop.Status.ACTIVE:
-        raise PermissionDenied(f"This workshop is {workshop.status}; reactivate it before making changes." if workshop.status == "inactive"
-                               else "This workshop is suspended. Contact the platform administrators.")
+        raise PermissionDenied({"pending": "This workshop is waiting for administrator approval; orders, tasks and invitations open once it is approved.",
+                                "inactive": "This workshop is inactive; reactivate it before making changes."}.get(workshop.status,
+                               "This workshop is suspended. Contact the platform administrators."))
 
 
 def visible_workshops(user):

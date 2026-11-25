@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.audit.models import AuditLog
+from apps.audit.tests.helpers import mark, rows
 from apps.audit import services
 from apps.core.tests.helpers import CAB, client_for, make_user
 from apps.projects.models import Project
@@ -12,14 +13,14 @@ ADMIN = "/api/v1/admin-api/audit-logs/"
 
 
 def logs(**kw):
-    return AuditLog.objects.filter(**kw)
+    return rows().filter(**kw)
 
 
 class RecordingTests(TestCase):
     def setUp(self):
         self.user = make_user("owner@x.com")
         self.c = client_for(self.user)
-        AuditLog.objects.all().delete()  # forget the setup noise
+        mark(self)  # forget the setup noise
 
     def test_create_update_delete_through_the_api(self):
         r = self.c.post(API + "projects/", {"name": "Kitchen", "category": "kitchen"}, format="json", REMOTE_ADDR="203.0.113.7")
@@ -45,24 +46,24 @@ class RecordingTests(TestCase):
 
     def test_a_save_that_changes_nothing_writes_nothing(self):
         p = Project.objects.create(owner=self.user, name="Same")
-        n = AuditLog.objects.count()
+        n = rows().count()
         p.save()
         p.name = "Same"
         p.save()
-        self.assertEqual(AuditLog.objects.count(), n)
+        self.assertEqual(rows().count(), n)
 
     def test_failed_requests_are_not_recorded(self):
         self.assertEqual(self.c.post(API + "projects/", {"name": ""}, format="json").status_code, 400)
-        self.assertEqual(AuditLog.objects.count(), 0)
+        self.assertEqual(rows().count(), 0)
         self.assertEqual(self.c.delete(API + "projects/999999/").status_code, 404)
-        self.assertEqual(AuditLog.objects.count(), 0)
+        self.assertEqual(rows().count(), 0)
 
     def test_other_users_cannot_cause_entries_for_my_objects(self):
         p = Project.objects.create(owner=self.user, name="Mine")
         intruder = client_for(make_user("evil@x.com"))
-        AuditLog.objects.all().delete()
+        mark(self)
         self.assertEqual(intruder.delete(f"{API}projects/{p.id}/").status_code, 404)
-        self.assertEqual(AuditLog.objects.count(), 0)
+        self.assertEqual(rows().count(), 0)
 
     def test_saved_calculation_is_recorded_without_its_payload(self):
         r = self.c.post(API + "calculations/material/", dict(CAB, save=True, name="Wardrobe"), format="json")
@@ -71,14 +72,14 @@ class RecordingTests(TestCase):
 
     def test_cascade_deletes_are_recorded_for_children(self):
         r = self.c.post(API + "calculations/material/", dict(CAB, save=True, project=Project.objects.create(owner=self.user, name="P").id), format="json")
-        AuditLog.objects.all().delete()
+        mark(self)
         Project.objects.get(owner=self.user).delete()
         self.assertTrue(logs(model="calculations.calculation", object_id=str(r.data["saved_id"]), action="delete").exists())
 
     def test_cutting_list_parts_replacement_is_recorded(self):
         cl = self.c.post(API + "cutting-lists/", {"name": "L", "parts": [{"name": "A", "width": 300, "height": 600, "thickness": 18, "quantity": 1}]},
                          format="json").data
-        AuditLog.objects.all().delete()
+        mark(self)
         self.c.patch(f"{API}cutting-lists/{cl['id']}/", {"parts": [{"name": "B", "width": 200, "height": 400, "thickness": 18, "quantity": 2},
                                                                     {"name": "C", "width": 100, "height": 400, "thickness": 18, "quantity": 1}]}, format="json")
         e = logs(model="cutting_lists.cuttinglist", action="update").get()
@@ -88,7 +89,7 @@ class RecordingTests(TestCase):
 class SensitiveDataTests(TestCase):
     def test_passwords_are_never_stored(self):
         u = make_user("pw@x.com")
-        AuditLog.objects.all().delete()
+        mark(self)
         u.set_password("Another-Strong-1!")
         u.first_name = "Renamed"
         u.save()
@@ -100,15 +101,15 @@ class SensitiveDataTests(TestCase):
 
     def test_last_login_updates_are_not_logged(self):
         u = make_user("ll@x.com")
-        AuditLog.objects.all().delete()
+        mark(self)
         from django.utils import timezone
         u.last_login = timezone.now()
         u.save(update_fields=["last_login"])
-        self.assertEqual(AuditLog.objects.count(), 0)
+        self.assertEqual(rows().count(), 0)
 
     def test_privilege_changes_are_visible(self):
         u = make_user("promote@x.com")
-        AuditLog.objects.all().delete()
+        mark(self)
         u.is_staff = True
         u.save()
         self.assertEqual(logs(action="update").get().changes["is_staff"], {"old": False, "new": True})
@@ -116,7 +117,7 @@ class SensitiveDataTests(TestCase):
     def test_long_values_are_truncated(self):
         u = make_user("long@x.com")
         p = Project.objects.create(owner=u, name="x")
-        AuditLog.objects.all().delete()
+        mark(self)
         p.description = "y" * 5000
         p.save()
         self.assertLessEqual(len(logs(action="update").get().changes["description"]["new"]), 201)
@@ -125,7 +126,7 @@ class SensitiveDataTests(TestCase):
 class AuthEventTests(TestCase):
     def test_login_logout_and_password_change(self):
         u = make_user("auth@x.com")
-        AuditLog.objects.all().delete()
+        mark(self)
         c = APIClient()
         r = c.post(API + "auth/login/", {"email": "auth@x.com", "password": "StrongPass!234"}, format="json")
         self.assertEqual(r.status_code, 200, r.data)
@@ -138,7 +139,7 @@ class AuthEventTests(TestCase):
 
     def test_failed_login_is_not_recorded_as_a_login(self):
         make_user("auth2@x.com")
-        AuditLog.objects.all().delete()
+        mark(self)
         APIClient().post(API + "auth/login/", {"email": "auth2@x.com", "password": "wrong"}, format="json")
         self.assertFalse(logs(action="login").exists())
 
@@ -162,8 +163,9 @@ class SystemAndRetentionTests(TestCase):
         client_for(u).post(API + "projects/", {"name": "Kept"}, format="json")
         User.objects.get(pk=u.pk).delete()
         e = logs(model="projects.project", action="create").get()
-        self.assertIsNone(e.actor)
-        self.assertEqual(e.actor_email, "leaver@x.com")
+        self.assertEqual(e.actor_email, "leaver@x.com")                       # the readable snapshot survives ...
+        self.assertEqual(e.actor_id, u.pk)                                    # ... and so does the id: deleting an account never rewrites history
+        self.assertFalse(User.objects.filter(pk=u.pk).exists())
 
     def test_entries_are_immutable(self):
         e = services.record("update", model="x.y", object_id=1)
@@ -172,7 +174,7 @@ class SystemAndRetentionTests(TestCase):
             e.save()
         with self.assertRaises(PermissionError):
             e.delete()
-        self.assertEqual(AuditLog.objects.get(pk=e.pk).object_repr, "")
+        self.assertEqual(rows().get(pk=e.pk).object_repr, "")
 
     def test_a_failing_audit_write_does_not_break_the_request(self):
         from unittest import mock
@@ -207,7 +209,7 @@ class AdminApiTests(TestCase):
 
     def test_it_is_read_only(self):
         c = client_for(self.admin)
-        e = AuditLog.objects.first()
+        e = rows().first()
         self.assertEqual(c.post(ADMIN, {"action": "create"}, format="json").status_code, 405)
         self.assertEqual(c.patch(f"{ADMIN}{e.id}/", {"object_repr": "x"}, format="json").status_code, 405)
         self.assertEqual(c.delete(f"{ADMIN}{e.id}/").status_code, 405)
@@ -230,7 +232,7 @@ class AdminApiTests(TestCase):
         self.assertTrue({"actor_email", "action", "model", "object_id", "object_repr", "changes", "ip", "created_at"} <= set(r[0]))
 
     def test_admin_actions_are_attributed_to_the_admin(self):
-        AuditLog.objects.all().delete()
+        mark(self)
         c = client_for(self.admin)
         uid = self.user.id
         r = c.patch(f"{API}admin-api/users/{uid}/", {"is_active": False}, format="json")

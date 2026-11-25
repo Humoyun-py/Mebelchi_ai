@@ -16,6 +16,7 @@ from . import access, services
 from .filters import OrderFilter, TaskFilter
 from .models import Order, Task, Workshop, WorkshopMember
 from .ordering import NullsLastOrderingFilter
+from apps.core.permissions import IsWorkshop
 from .serializers import (InvitationSerializer, InviteSerializer, LogoSerializer, MemberSerializer, MemberUpdateSerializer, OrderDetailSerializer,
                           OrderSerializer, TaskDetailSerializer, TaskSerializer, WorkshopSerializer)
 
@@ -329,3 +330,38 @@ class TaskViewSet(ConflictMixin, RequestScopeMixin, viewsets.ModelViewSet):
         if detail:
             qs = qs.prefetch_related("status_history__changed_by")
         return qs.get(pk=task.pk)
+
+
+class WorkshopMeView(APIView):
+    """Marketplace-style profile endpoint kept for clients that manage one workshop (`/workshops/me/`): the caller's first owned workshop.
+    Only accounts with the Workshop role may use it. Creating, editing and visibility rules are the same as for `/workshops/`."""
+
+    permission_classes = [IsAuthenticated, IsWorkshop]
+
+    def _mine(self, request):
+        ws = Workshop.objects.select_related("owner").filter(owner=request.user).order_by("id").first()
+        if ws is None:
+            raise NotFound("Workshop profile does not exist yet.")
+        return ws
+
+    @extend_schema(responses=WorkshopSerializer)
+    def get(self, request):
+        ws = self._mine(request)
+        return Response(WorkshopSerializer(ws, context={"request": request, "my_roles": {ws.pk: M.Role.OWNER}}).data)
+
+    @extend_schema(request=WorkshopSerializer, responses=WorkshopSerializer)
+    def post(self, request):
+        if Workshop.objects.filter(owner=request.user).exists():
+            raise ValidationError({"detail": "A profile already exists. Use PATCH, or create further workshops through /workshops/."})
+        s = WorkshopSerializer(data=request.data, context={"request": request})
+        s.is_valid(raise_exception=True)
+        ws = services.create_workshop(request.user, dict(s.validated_data))
+        return Response(WorkshopSerializer(ws, context={"request": request, "my_roles": {ws.pk: M.Role.OWNER}}).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=WorkshopSerializer, responses=WorkshopSerializer)
+    def patch(self, request):
+        ws = self._mine(request)
+        s = WorkshopSerializer(ws, data=request.data, partial=True, context={"request": request})
+        s.is_valid(raise_exception=True)
+        ws = services.update_workshop(ws, request.user, dict(s.validated_data))
+        return Response(WorkshopSerializer(ws, context={"request": request, "my_roles": {ws.pk: M.Role.OWNER}}).data)

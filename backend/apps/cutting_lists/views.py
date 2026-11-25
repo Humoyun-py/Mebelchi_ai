@@ -11,7 +11,7 @@ from apps.projects.models import Project
 from apps.subscriptions.services import enforce_export_limit
 
 from . import exports, services
-from .models import CuttingList, CuttingPart
+from .models import CuttingList
 from .serializers import (CuttingListSerializer, FromCalculationSerializer, OptimizationRunSerializer, OptimizeParamsSerializer)
 
 
@@ -37,16 +37,7 @@ class CuttingListViewSet(OwnedModelViewSet):
             project = Project.objects.filter(pk=project_id, owner=request.user).first()
             if not project:
                 raise ValidationError({"project": "Project not found."})
-        cl = CuttingList.objects.create(owner=request.user, project=project, name=name or "Cabinet cutting list",
-                                        sheet_length=length, sheet_width=width, source_inputs=calc["input"])
-        # With edge banding the sheet must be cut at (finished size - tape); without it cut size == finished size.
-        banded = calc["input"]["edge_thickness"] > 0
-        CuttingPart.objects.bulk_create([CuttingPart(cutting_list=cl, name=p["name"],
-                                                     width=p["cut_width"] if banded else p["width"], height=p["cut_height"] if banded else p["height"],
-                                                     thickness=p["thickness"], quantity=p["quantity"], material=p["material"], can_rotate=p["can_rotate"],
-                                                     edge_w=p["edge_w"], edge_h=p["edge_h"],
-                                                     edge_note=(p["edge_note"] + f"; cut size, {calc['input']['edge_thickness']:g} mm tape deducted") if banded else p["edge_note"])
-                                        for p in calc["parts"]])
+        cl = services.create_from_calculation(request.user, calc, project=project, name=name, sheet_length=length, sheet_width=width)
         track(request.user, "cutting_list_generated")
         return Response(self.get_serializer(cl).data, status=201)
 

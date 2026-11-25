@@ -56,7 +56,7 @@ class WorkshopSerializer(OwnedIdsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Workshop
-        fields = ["id", "name", "slug", "description", "owner", "phone", "email", "address", "logo_url", "status", "my_role",
+        fields = ["id", "name", "kind", "city", "slug", "description", "owner", "phone", "email", "address", "logo_url", "status", "my_role",
                   "created_at", "updated_at"]
         read_only_fields = ["id", "slug", "created_at", "updated_at"]
 
@@ -70,8 +70,8 @@ class WorkshopSerializer(OwnedIdsMixin, serializers.ModelSerializer):
         return self.context.get("my_roles", {}).get(obj.pk)
 
     def validate_status(self, v):
-        if v == Workshop.Status.SUSPENDED:
-            raise serializers.ValidationError("Only platform administrators can suspend a workshop.")
+        if v not in (Workshop.Status.ACTIVE, Workshop.Status.INACTIVE):
+            raise serializers.ValidationError("You can switch between active and inactive. Approval and suspension are done by platform administrators.")
         return v
 
     def validate_name(self, v):

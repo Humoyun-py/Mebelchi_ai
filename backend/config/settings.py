@@ -60,11 +60,13 @@ INSTALLED_APPS = [
     "apps.conversations",
     "apps.galleries",
     "apps.files",
+    "apps.integrations",
+    "apps.audit",
+    "apps.workshops",
+    "apps.rooms",
     "apps.subscriptions",
     "apps.notifications",
     "apps.analytics",
-    "apps.audit",
-    "apps.workshops",
 ]
 
 MIDDLEWARE = [
@@ -99,23 +101,17 @@ TEMPLATES = [
     }
 ]
 
-# Database: PostgreSQL when POSTGRES_DB is set, SQLite otherwise (tests / quick local dev).
-if env("POSTGRES_DB"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("POSTGRES_DB"),
-            "USER": env("POSTGRES_USER", "mebelchi"),
-            "PASSWORD": env("POSTGRES_PASSWORD", ""),
-            "HOST": env("POSTGRES_HOST", "localhost"),
-            "PORT": env("POSTGRES_PORT", "5432"),
-            "CONN_MAX_AGE": 60,
-        }
-    }
-else:
-    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
+# Database: centralized selection in config/database.py (PostgreSQL first, optional SQLite fallback).
+from config.database import log_database_status, resolve_database  # noqa: E402
+
+_default_db, DATABASE_STATUS = resolve_database(os.environ, BASE_DIR)
+DATABASES = {"default": _default_db}
 
 AUTH_USER_MODEL = "users.User"
+# Telegram bot integration. The bot authenticates to the API with TELEGRAM_BOT_API_SECRET (fail-closed when empty).
+# TELEGRAM_BOT_TOKEN is used only by the backend to push notifications; the bot process has its own copy.
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_API_SECRET = env("TELEGRAM_BOT_API_SECRET", "")
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
@@ -183,6 +179,7 @@ REST_FRAMEWORK = {
         "user": env("THROTTLE_USER", "600/min"),
         "auth": env("THROTTLE_AUTH", "10/min"),
         "export": env("THROTTLE_EXPORT", "30/min"),
+        "telegram": env("THROTTLE_TELEGRAM", "120/min"),
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
@@ -246,3 +243,4 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", "INFO")},
 }
+log_database_status(DATABASE_STATUS)
