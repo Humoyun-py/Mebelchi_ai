@@ -20,6 +20,7 @@ api = [
     path("", include("apps.galleries.urls")),
     path("", include("apps.files.urls")),
     path("", include("apps.workshops.urls")),
+    path("", include("apps.rooms.urls")),
     path("subscriptions/", include("apps.subscriptions.urls")),
     path("", include("apps.notifications.urls")),
     path("analytics/", include("apps.analytics.urls")),

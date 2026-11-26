@@ -76,7 +76,7 @@ export interface Material { id: number; name: string; kind: string; thickness: s
 export interface Template { id: number; slug: string; category: string; name: string; description: string; defaults: CabinetInput }
 export interface GalleryImage { id: number; name: string; source: string; favorite: boolean; project: number | null; url: string; width: number; height: number; size_bytes: number; created_at: string }
 export interface UserFile { id: number; name: string; kind: string; size_bytes: number; project: number | null; url: string; created_at: string }
-export interface Design { id: number; name: string; kind: 'furniture' | 'interior'; project: number | null; config: Record<string, unknown>; room_image: number | null; updated_at: string }
+export interface Design { id: number; name: string; kind: 'furniture' | 'interior'; project: number | null; config: Record<string, unknown>; room_image: number | null; room_flow?: number | null; updated_at: string }
 export interface Conversation { id: number; title: string; project: number | null; message_count: number; updated_at: string }
 export interface ChatMessage {
   id: number; role: 'user' | 'assistant'; content: string; attachments: { type: string; id: number; name: string }[]

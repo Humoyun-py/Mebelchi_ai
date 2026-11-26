@@ -238,6 +238,28 @@ curl -X POST /api/v1/tasks/ -H "Authorization: Bearer $T" -H 'Content-Type: appl
 curl -X PATCH /api/v1/tasks/1/ -H "Authorization: Bearer $EMPLOYEE_T" -H 'Content-Type: application/json' -d '{"status":"in_progress"}'   # the assignee reports progress
 ```
 
+## Room design (`rooms/`)
+
+A guided conversation that ends in a 3D room with furniture, saved as an `interior` design (`config.schema = "room.v1"`, units are millimetres). The web app and the Telegram bot are meant to drive the same flow. It is deterministic: no external AI, and photos are stored only as a reference (never analysed). Layouts are planning aids, not verified for manufacture.
+
+Steps: `goal` -> `photo` (optional) -> `elements` -> `size` -> `openings` (skipped when there are no doors or windows) -> `style` -> `furnish` -> `done`. Every response carries the current `question` (kind, fields, options and limits in en/uz/ru), so a client renders it from the response alone. Every route is scoped to the signed-in user; a flow that is not yours answers 404.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `rooms/` | your flows, newest activity first; `?status=active\|completed\|abandoned` |
+| POST | `rooms/` | starts a flow at `goal`; **409** after 20 unfinished flows |
+| GET / DELETE | `rooms/{id}/` | state, `question`, `design` id and `room` (`config` + `warnings`). DELETE removes the flow and **keeps** the saved design |
+| POST | `rooms/{id}/answer/` | `{"step": "<current step>", "value": ...}`. **409** (`expected_step`) when `step` is not the current step; **400** with `error.fields` for a bad value. Values: `goal` an id; `photo` `{"skip": true}` or `{"image_id": n}` (must be your own gallery image); `elements` `{doors, windows, furniture:[template slugs]}`; `size` `{width, length, height}`; `openings` `[{type, wall, offset, width, height, sill}]`; `style` an id; `furnish` `{"done": true}` |
+| POST | `rooms/{id}/back/` | one step back, keeping every answer |
+| POST | `rooms/{id}/finish/` | only in `furnish`; the flow becomes `completed` and read-only |
+| GET | `rooms/{id}/model/` | boxes for the 3D viewer (walls with openings, floor, ceiling, furniture), rebuilt from the saved config |
+| POST | `rooms/{id}/items/` | `{"template": slug, x?, z?, rot?, width?, depth?, height?, shelves?, doors?, drawers?, color?, name?}`; without `x` and `z` the item is placed automatically (400 `position` when it fits nowhere); at most 60 items |
+| PATCH / DELETE | `rooms/{id}/items/{item_id}/` | PATCH moves, rotates (`rot` 0/90/180/270) or resizes; `id` and `template` cannot change |
+| POST | `rooms/{id}/reset-layout/` | discards manual placements and lays the chosen furniture out again |
+| POST | `rooms/import-design/` | body `{"design": <id>}`. Opens an **old interior design** (no `room_flow`) in the room designer: 201 the first time, 200 when it was imported before (same flow, edits kept). The old design is never changed; the room designer works on a copy with the same name, project and photo, config `room.v1`, and the old config under `config.legacy`. 404 not yours / not an interior design, 400 names the old field that cannot be converted (`roomW`, `roomL`, `roomH`), 409 when 20 unfinished room designs exist or the design is already `room.v1` without a conversation |
+
+Answering `style` builds the room; answering it again later (after `back`) **rebuilds it and replaces manual placements**. Items must stay inside the room and must not overlap (400 otherwise); standing in front of a door (800 mm zone) is a **warning** (`door_zone`), not an error. Item and answer changes return the whole flow plus `item` and `item_warnings`. A design built by a flow has `room_flow` (its id) in `designs/` responses; the web app uses it to reopen the room in the room designer. The size and structure of every cabinet are checked by the same engine as the furniture editor.
+
 ## Administration (`admin-api/`, staff only, otherwise 403)
 
 ### Workshop review (`admin-api/workshops/`, platform admins only)
