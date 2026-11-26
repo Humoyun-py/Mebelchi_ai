@@ -1,4 +1,4 @@
-export type Role = 'maker' | 'homeowner'
+export type Role = 'maker' | 'homeowner' | 'workshop'
 export interface User {
   id: number; email: string; first_name: string; last_name: string; full_name: string; phone: string
   avatar_url: string | null; role: Role; role_selected: boolean; theme: 'dark' | 'light'; language: 'en' | 'uz' | 'ru'
@@ -104,7 +104,7 @@ export interface Meta {
 }
 
 // ---- workshops (Phase 3 API)
-export type WorkshopStatus = 'active' | 'inactive' | 'suspended'
+export type WorkshopStatus = 'pending' | 'active' | 'inactive' | 'suspended'
 export type MemberRole = 'owner' | 'employee'
 export type MemberStatus = 'invited' | 'active' | 'removed'
 export type OrderStatus = 'new' | 'confirmed' | 'in_production' | 'ready' | 'delivered' | 'cancelled'

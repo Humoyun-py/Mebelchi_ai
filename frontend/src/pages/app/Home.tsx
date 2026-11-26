@@ -41,7 +41,7 @@ const OWNER: Action[] = [
 ]
 
 export default function Home() {
-  const t = useT(); const user = useAuth((s) => s.user)!; const nav = useNavigate(); const maker = user.role === 'maker'
+  const t = useT(); const user = useAuth((s) => s.user)!; const nav = useNavigate(); const maker = user.role !== 'homeowner'
   const summary = useSummary(); const recent = useProjects({ page_size: 6 })
   const usage = useQuery({ queryKey: ['usage'], queryFn: async () => (await api.get<Usage>('/subscriptions/me/')).data })
   const actions = maker ? MAKER : OWNER

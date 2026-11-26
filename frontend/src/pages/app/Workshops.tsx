@@ -38,7 +38,7 @@ export default function Workshops() {
   const t = useT(); const user = useAuth((s) => s.user)!; const [open, setOpen] = useState(false)
   const list = useWorkshops(); const inv = useInvitations()
   const answer = useAction(({ ws, id, status }: { ws: number; id: number; status: 'active' | 'removed' }) => api.patch(`/workshops/${ws}/members/${id}/`, { status }), {})
-  const maker = user.role === 'maker'
+  const maker = user.role === 'workshop'  // only administrator-assigned Workshop accounts may create one
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">{t('side.workshops')}</h1><p className="mt-1 text-sm text-muted">{t('ws.sub')}</p></div>

@@ -11,17 +11,17 @@ from apps.core.tests.helpers import client_for, make_user
 from apps.notifications.models import Notification
 from apps.workshops.models import Workshop, WorkshopMember
 
-from .helpers import API, WS, Scene, add_member, make_order, make_task, make_workshop, member_of
+from .helpers import API, WS, Scene, add_member, as_workshop, make_order, make_task, make_workshop, member_of
 
 M = WorkshopMember
 
 
 class WorkshopCreationTests(TestCase):
-    def test_a_maker_creates_a_workshop_and_becomes_its_owner(self):
-        u = make_user("m@x.com", "maker")
+    def test_a_workshop_account_creates_a_pending_workshop_and_becomes_its_owner(self):
+        u = as_workshop(make_user("m@x.com", "maker"))
         r = client_for(u).post(WS, {"name": "Samarkand Furniture", "phone": "+998901112233", "address": "Samarkand"}, format="json")
         self.assertEqual(r.status_code, 201, r.data)
-        self.assertEqual((r.data["slug"], r.data["status"], r.data["my_role"]), ("samarkand-furniture", "active", "owner"))
+        self.assertEqual((r.data["slug"], r.data["status"], r.data["my_role"]), ("samarkand-furniture", "pending", "owner"))
         ws = Workshop.objects.get()
         self.assertEqual(ws.owner, u)
         m = M.objects.get(workshop=ws)
@@ -33,24 +33,24 @@ class WorkshopCreationTests(TestCase):
         a, b = make_workshop(u, "Same Name"), make_workshop(u, "Same Name")
         self.assertNotEqual(a.slug, b.slug)
 
-    def test_only_makers_and_staff_can_create(self):
-        home = make_user("home@x.com", "homeowner")
-        r = client_for(home).post(WS, {"name": "Nope"}, format="json")
-        self.assertEqual(r.status_code, 403)
-        self.assertIn("Furniture Maker", r.data["error"]["detail"])
-        self.assertEqual(client_for(make_user("st@x.com", "homeowner", is_staff=True)).post(WS, {"name": "Staff WS"}, format="json").status_code, 201)
+    def test_only_workshop_accounts_can_create(self):
+        for email, role, staff in (("home@x.com", "homeowner", False), ("mk@x.com", "maker", False), ("st@x.com", "homeowner", True)):
+            r = client_for(make_user(email, role, is_staff=staff)).post(WS, {"name": "Nope"}, format="json")
+            self.assertEqual(r.status_code, 403, email)
+            self.assertIn("Workshop role", r.data["error"]["detail"])
         self.assertEqual(client_for().post(WS, {"name": "Anon"}, format="json").status_code, 401)
 
     def test_validation(self):
-        c = client_for(make_user("m@x.com", "maker"))
+        c = client_for(as_workshop(make_user("m@x.com", "maker")))
         self.assertEqual(c.post(WS, {"name": ""}, format="json").status_code, 400)
         self.assertEqual(c.post(WS, {"name": "a"}, format="json").status_code, 400)
         self.assertEqual(c.post(WS, {"name": "Ok", "email": "not-an-email"}, format="json").status_code, 400)
         self.assertEqual(c.post(WS, {"name": "Ok", "status": "suspended"}, format="json").status_code, 400)
 
     def test_owner_and_slug_cannot_be_forged_on_creation(self):
-        me, other = make_user("m@x.com", "maker"), make_user("o@x.com", "maker")
+        me, other = as_workshop(make_user("m@x.com", "maker")), make_user("o@x.com", "maker")
         r = client_for(me).post(WS, {"name": "Mine", "owner": other.pk, "slug": "hijack"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
         ws = Workshop.objects.get(pk=r.data["id"])
         self.assertEqual((ws.owner, ws.slug), (me, "mine"))
 
