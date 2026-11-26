@@ -1339,6 +1339,11 @@ Object.assign(en, {
   "room.toDesigns": "Open Designs",
   "room.toList": "All room designs",
   "room.cutaway": "Cutaway: hide the ceiling and the two front walls",
+  "room.importing": "Opening your design in the room designer...",
+  "room.importErr": "This design could not be opened in the room designer.",
+  "room.importHint": "Your original design is unchanged.",
+  "room.starting": "Starting a new room design...",
+  "room.toDesigns2": "Back to my designs",
 })
 
 Object.assign(uz, {
@@ -1403,6 +1408,11 @@ Object.assign(uz, {
   "room.toDesigns": "Dizaynlarni ochish",
   "room.toList": "Barcha xona dizaynlari",
   "room.cutaway": "Kesim ko'rinishi: shift va old tomondagi ikki devorni yashirish",
+  "room.importing": "Dizayningiz xona dizaynerida ochilmoqda...",
+  "room.importErr": "Bu dizaynni xona dizaynerida ochib bo'lmadi.",
+  "room.importHint": "Asl dizayningiz o'zgarmagan.",
+  "room.starting": "Yangi xona dizayni boshlanmoqda...",
+  "room.toDesigns2": "Dizaynlarimga qaytish",
 })
 
 Object.assign(ru, {
@@ -1467,6 +1477,11 @@ Object.assign(ru, {
   "room.toDesigns": "Открыть дизайны",
   "room.toList": "Все проекты комнат",
   "room.cutaway": "Разрез: скрыть потолок и две передние стены",
+  "room.importing": "Открываем ваш дизайн в дизайнере комнат...",
+  "room.importErr": "Не удалось открыть этот дизайн в дизайнере комнат.",
+  "room.importHint": "Ваш исходный дизайн не изменён.",
+  "room.starting": "Создаём новый проект комнаты...",
+  "room.toDesigns2": "Назад к моим дизайнам",
 })
 
 export const dictionaries = { en, uz, ru }

@@ -29,13 +29,13 @@ const MAKER: Action[] = [
   { icon: Briefcase, title: 'Office Furniture', text: 'Filing and storage units', to: '/app/editor?template=office-cabinet' },
 ]
 const OWNER: Action[] = [
-  { icon: ChefHat, title: 'Design My Kitchen', text: 'Layout, style and colors', to: '/app/interior?room=kitchen' },
-  { icon: BedDouble, title: 'Design My Bedroom', text: 'Wardrobe, bed and storage', to: '/app/interior?room=bedroom' },
-  { icon: Armchair, title: 'Design My Living Room', text: 'Seating, TV unit, shelves', to: '/app/interior?room=living' },
-  { icon: Sparkles, title: 'Modern Style', text: 'Clean lines, neutral palette', to: '/app/interior?style=modern' },
-  { icon: Landmark, title: 'Classic Style', text: 'Warm wood, traditional detail', to: '/app/interior?style=classic' },
-  { icon: Minus, title: 'Minimal Style', text: 'Light, simple, uncluttered', to: '/app/interior?style=minimal' },
-  { icon: Crown, title: 'Luxury Style', text: 'Rich finishes and contrast', to: '/app/interior?style=luxury' },
+  { icon: ChefHat, title: 'Design My Kitchen', text: 'Layout, style and colors', to: '/app/rooms/new?goal=kitchen' },
+  { icon: BedDouble, title: 'Design My Bedroom', text: 'Wardrobe, bed and storage', to: '/app/rooms/new?goal=bedroom' },
+  { icon: Armchair, title: 'Design My Living Room', text: 'Seating, TV unit, shelves', to: '/app/rooms/new?goal=living' },
+  { icon: Sparkles, title: 'Modern Style', text: 'Clean lines, neutral palette', to: '/app/rooms/new' },
+  { icon: Landmark, title: 'Classic Style', text: 'Warm wood, traditional detail', to: '/app/rooms/new' },
+  { icon: Minus, title: 'Minimal Style', text: 'Light, simple, uncluttered', to: '/app/rooms/new' },
+  { icon: Crown, title: 'Luxury Style', text: 'Rich finishes and contrast', to: '/app/rooms/new' },
   { icon: Upload, title: 'Upload My Room', text: 'Keep room photos with your design', to: '/app/gallery?source=room' },
   { icon: Wand2, title: 'Generate Furniture', text: 'Parametric furniture in 3D', to: '/app/editor' },
 ]

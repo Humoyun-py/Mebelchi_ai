@@ -16,7 +16,9 @@ const ProjectDetail = lazy(() => import('./pages/app/ProjectDetail'))
 const Calculator = lazy(() => import('./pages/app/Calculator'))
 const CuttingLists = lazy(() => import('./pages/app/CuttingLists'))
 const Editor = lazy(() => import('./pages/app/Editor'))
-const Interior = lazy(() => import('./pages/app/Interior'))
+const RoomStart = lazy(() => import('./pages/app/RoomEntry').then((m) => ({ default: m.RoomStart })))
+const RoomImport = lazy(() => import('./pages/app/RoomEntry').then((m) => ({ default: m.RoomImport })))
+const LegacyInterior = lazy(() => import('./pages/app/RoomEntry').then((m) => ({ default: m.LegacyInterior })))
 const Rooms = lazy(() => import('./pages/app/Rooms'))
 const Gallery = lazy(() => import('./pages/app/Gallery'))
 const Files = lazy(() => import('./pages/app/Files'))
@@ -66,8 +68,10 @@ export default function App() {
           <Route path="cutting-lists" element={<L><CuttingLists /></L>} />
           <Route path="cutting-lists/:id" element={<L><CuttingLists /></L>} />
           <Route path="editor" element={<L><Editor /></L>} />
-          <Route path="interior" element={<L><Interior /></L>} />
+          <Route path="interior" element={<L><LegacyInterior /></L>} />
           <Route path="rooms" element={<L><Rooms /></L>} />
+          <Route path="rooms/new" element={<L><RoomStart /></L>} />
+          <Route path="rooms/import/:designId" element={<L><RoomImport /></L>} />
           <Route path="rooms/:id" element={<L><Rooms /></L>} />
           <Route path="gallery" element={<L><Gallery /></L>} />
           <Route path="files" element={<L><Files /></L>} />

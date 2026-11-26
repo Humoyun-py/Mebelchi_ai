@@ -35,3 +35,10 @@ export function useDeleteRoom() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: async (id: number) => { await api.delete(`/rooms/${id}/`) }, onSuccess: () => qc.invalidateQueries({ queryKey: ['rooms'] }) })
 }
+
+/** Opens an old interior design in the room designer (the server copies it; the old design is never changed). Safe to repeat: the same flow comes back. */
+export function useImportDesign() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: async (design: number) => (await api.post<RoomFlow>('/rooms/import-design/', { design })).data,
+    onSuccess: (f) => { qc.setQueryData(key(f.id), f); qc.invalidateQueries({ queryKey: ['rooms'] }); qc.invalidateQueries({ queryKey: ['designs'] }) } })
+}
