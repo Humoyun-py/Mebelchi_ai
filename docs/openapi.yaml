@@ -4243,6 +4243,38 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/v1/rooms/import-design/:
+    post:
+      operationId: rooms_import_design_create
+      description: |-
+        Body `{"design": <id>}`: opens an old interior design in the room designer (201 first time, 200 when it was imported before).
+        The old design is kept unchanged; the room designer works on a copy. 400 names the old field that cannot be converted.
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/subscriptions/me/:
     get:
       operationId: subscriptions_me_retrieve

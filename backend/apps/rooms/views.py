@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from apps.conversations import flow
 from apps.geometry import room as geo
 
-from . import services
+from . import legacy, services
 from .models import RoomFlow
 
 
@@ -31,7 +31,7 @@ def guarded(fn):
             raise _fields(e.errors)
         except flow.FlowError as e:
             return Response({"error": {"status": 409, "detail": str(e)}}, status=status.HTTP_409_CONFLICT)
-        except geo.RoomError as e:
+        except (geo.RoomError, legacy.LegacyError) as e:
             raise _fields(e.errors)
     wrapper.__name__ = fn.__name__
     wrapper.__doc__ = fn.__doc__
@@ -77,6 +77,18 @@ class RoomFlowViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     @guarded
     def create(self, request):
         return Response(payload(services.start(request.user)), status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
+    @action(detail=False, methods=["post"], url_path="import-design")
+    @guarded
+    def import_design(self, request):
+        """Body `{"design": <id>}`: opens an old interior design in the room designer (201 first time, 200 when it was imported before).
+        The old design is kept unchanged; the room designer works on a copy. 400 names the old field that cannot be converted."""
+        d = request.data.get("design") if isinstance(request.data, dict) else None
+        if isinstance(d, bool) or not isinstance(d, int):
+            raise ValidationError({"design": ["send {\"design\": <design id>}"]})
+        f, created = services.import_legacy(request.user, d)
+        return Response(payload(f, imported=True), status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @extend_schema(responses=OpenApiTypes.OBJECT)
     def retrieve(self, request, pk=None):

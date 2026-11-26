@@ -19,6 +19,7 @@ from apps.furniture.models import FurnitureTemplate
 from apps.galleries.models import GalleryImage
 from apps.geometry import room as geo
 
+from . import legacy
 from .models import RoomFlow
 
 SCHEMA = "room.v1"
@@ -110,6 +111,30 @@ def finish(user, pk: int) -> RoomFlow:
 def delete(user, pk: int) -> None:
     with transaction.atomic():
         _lock(user, pk).delete()                      # the Design, if any, is the user's saved work and stays
+
+
+def import_legacy(user, design_id: int) -> tuple[RoomFlow, bool]:
+    """Opens an old interior design in the room designer. Returns (flow, created).
+
+    The old design is never changed or deleted: the room designer works on a COPY (same name, project and photo) whose config is room.v1 and
+    keeps the old config under `legacy`. Calling this again for the same design returns the same flow, so it can be retried safely."""
+    with transaction.atomic():
+        src = Design.objects.select_for_update().filter(pk=design_id, owner=user, kind=Design.Kind.INTERIOR).first()
+        if src is None:
+            raise NotFound
+        existing = RoomFlow.objects.filter(owner=user).filter(design_id=src.pk).first() or \
+            RoomFlow.objects.filter(owner=user, design__config__migrated_from=src.pk).select_related("design").first()
+        if existing is not None:
+            return existing, False
+        if legacy.is_room_design(src.config):
+            raise flow.FlowError("This design is already in the room-designer format but has no conversation to open.")
+        if RoomFlow.objects.filter(owner=user, status=RoomFlow.Status.ACTIVE).count() >= MAX_ACTIVE_FLOWS:
+            raise flow.FlowError(f"You have {MAX_ACTIVE_FLOWS} unfinished room designs. Finish or delete one first.")
+        photo = src.room_image if src.room_image_id and src.room_image.owner_id == user.id else None
+        out = legacy.convert(src.config, context().templates, photo.pk if photo else None)
+        out["config"]["migrated_from"] = src.pk
+        d = Design.objects.create(owner=user, project=src.project, kind=Design.Kind.INTERIOR, name=src.name, config=out["config"], room_image=photo)
+        return RoomFlow.objects.create(owner=user, step="furnish", answers=out["answers"], design=d, photo=photo), True
 
 
 def _require_active(f: RoomFlow):
