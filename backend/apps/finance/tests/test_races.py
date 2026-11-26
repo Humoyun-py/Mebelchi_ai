@@ -20,6 +20,7 @@ POSTGRES = connection.vendor == "postgresql"
 
 @skipUnless(POSTGRES, "needs concurrent PostgreSQL connections")
 class MoneyRaceTests(TransactionTestCase):
+    serialized_rollback = True      # same as the other race tests: flushing must restore content types for the classes that run after
     def _fixture_teardown(self):
         with connection.cursor() as c:
             c.execute("ALTER TABLE audit_auditlog DISABLE TRIGGER USER")
