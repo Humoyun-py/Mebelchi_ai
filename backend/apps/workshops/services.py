@@ -22,13 +22,17 @@ M, O, T = WorkshopMember, Order, Task
 
 ORDER_TRANSITIONS = {
     O.Status.NEW: {O.Status.CONFIRMED, O.Status.CANCELLED},
+    O.Status.PENDING: {O.Status.CONFIRMED, O.Status.REJECTED, O.Status.CANCELLED},      # marketplace order waiting for the workshop's answer
     O.Status.CONFIRMED: {O.Status.IN_PRODUCTION, O.Status.CANCELLED},
-    O.Status.IN_PRODUCTION: {O.Status.READY, O.Status.CANCELLED},
-    O.Status.READY: {O.Status.DELIVERED, O.Status.IN_PRODUCTION, O.Status.CANCELLED},
+    O.Status.IN_PRODUCTION: {O.Status.QUALITY_CHECK, O.Status.READY, O.Status.CANCELLED},
+    O.Status.QUALITY_CHECK: {O.Status.READY, O.Status.IN_PRODUCTION, O.Status.CANCELLED},
+    O.Status.READY: {O.Status.DELIVERY, O.Status.DELIVERED, O.Status.IN_PRODUCTION, O.Status.CANCELLED},
+    O.Status.DELIVERY: {O.Status.DELIVERED, O.Status.READY, O.Status.CANCELLED},
     O.Status.DELIVERED: set(),
+    O.Status.REJECTED: set(),
     O.Status.CANCELLED: set(),
 }
-ORDER_TERMINAL = {O.Status.DELIVERED, O.Status.CANCELLED}
+ORDER_TERMINAL = {O.Status.DELIVERED, O.Status.CANCELLED, O.Status.REJECTED}
 PAYMENT_FIELDS = {"paid_amount", "payment_status"}
 
 OPEN_TASK = {T.Status.PENDING, T.Status.IN_PROGRESS, T.Status.REVIEW}
@@ -281,6 +285,12 @@ def update_order(order: Order, actor: User, data: dict) -> Order:
     note = data.pop("status_note", "")
     old_status = order.status
     new_status = data.pop("status", old_status)
+    if order.source == O.Source.MARKETPLACE:
+        fixed = sorted({"total_price", "paid_amount", "payment_status"} & set(data))
+        if fixed:
+            raise err(fixed[0], "The price of a marketplace order is fixed when it is placed and its payments are confirmed by platform administrators.")
+    if new_status == O.Status.REJECTED and not note.strip():
+        raise err("status_note", "Say why the order is rejected; the customer sees this reason.")
     if order.status in ORDER_TERMINAL:
         locked = sorted(set(data) - PAYMENT_FIELDS)
         if locked or new_status != old_status:
@@ -320,16 +330,40 @@ def update_order(order: Order, actor: User, data: dict) -> Order:
         order.payment_status = pay_status
         if new_status != old_status:
             _apply_order_status(order, new_status)
+        if new_status == O.Status.REJECTED:
+            order.rejection_reason = note.strip()[:255]
         event = "order.status_changed" if new_status != old_status else "order.updated"
         save_with_event(order, event)
         if new_status != old_status:
             _log_order(order, old_status, actor, note)
             if new_status == O.Status.CANCELLED:
                 _cancel_open_tasks(order, actor)
+            _notify_customer(order, new_status)
     return order
 
 
+CUSTOMER_MESSAGES = {
+    O.Status.CONFIRMED: "The workshop accepted your order.",
+    O.Status.REJECTED: "The workshop could not take your order. You can choose another workshop.",
+    O.Status.IN_PRODUCTION: "Your furniture is being made.",
+    O.Status.QUALITY_CHECK: "Your furniture is in quality check.",
+    O.Status.READY: "Your furniture is ready.",
+    O.Status.DELIVERY: "Your furniture is on its way.",
+    O.Status.DELIVERED: "Your order is completed. You can rate the workshop.",
+}
+
+
+def _notify_customer(order: Order, new_status: str):
+    """Marketplace customers follow their order through notifications (and Telegram, when linked). Manual orders have no platform customer."""
+    if order.source != O.Source.MARKETPLACE or order.customer_user_id is None or new_status not in CUSTOMER_MESSAGES:
+        return
+    body = CUSTOMER_MESSAGES[new_status] + (f" Reason: {order.rejection_reason}" if new_status == O.Status.REJECTED and order.rejection_reason else "")
+    notify(order.customer_user, f"Order {order.order_number}", body, "warning" if new_status == O.Status.REJECTED else "info")
+
+
 def _apply_order_status(order: Order, new_status: str):
+    if order.status == O.Status.PENDING and order.responded_at is None:
+        order.responded_at = timezone.now()                # stops the reminders
     order.status = new_status
     today = timezone.localdate()
     if new_status == O.Status.IN_PRODUCTION and order.start_date is None and (order.deadline is None or order.deadline >= today):
@@ -453,11 +487,15 @@ def workshop_statistics(ws: Workshop) -> dict:
     now = timezone.now()
     money = DecimalField(max_digits=14, decimal_places=2)
     zero = Value(Decimal("0"), output_field=money)
-    live = ~Q(status=O.Status.CANCELLED)
+    live = ~Q(status__in=[O.Status.CANCELLED, O.Status.REJECTED, O.Status.PENDING])
     open_money = live & ~Q(payment_status=O.PaymentStatus.REFUNDED)
     o = Order.objects.filter(workshop=ws).aggregate(
         total=Count("id"),
         new=Count("id", filter=Q(status=O.Status.NEW)),
+        pending=Count("id", filter=Q(status=O.Status.PENDING)),
+        rejected=Count("id", filter=Q(status=O.Status.REJECTED)),
+        quality_check=Count("id", filter=Q(status=O.Status.QUALITY_CHECK)),
+        delivery=Count("id", filter=Q(status=O.Status.DELIVERY)),
         confirmed=Count("id", filter=Q(status=O.Status.CONFIRMED)),
         in_production=Count("id", filter=Q(status=O.Status.IN_PRODUCTION)),
         ready=Count("id", filter=Q(status=O.Status.READY)),
@@ -484,7 +522,8 @@ def workshop_statistics(ws: Workshop) -> dict:
     return {
         "workshop": ws.pk,
         "generated_at": now,
-        "orders": {"total": o["total"], "new": o["new"], "confirmed": o["confirmed"], "in_production": o["in_production"], "ready": o["ready"],
+        "orders": {"total": o["total"], "new": o["new"], "pending": o["pending"], "rejected": o["rejected"], "quality_check": o["quality_check"],
+                   "delivery": o["delivery"], "confirmed": o["confirmed"], "in_production": o["in_production"], "ready": o["ready"],
                    "delivered": o["delivered"], "completed": o["delivered"], "cancelled": o["cancelled"]},
         "employees": e,
         "tasks": t,

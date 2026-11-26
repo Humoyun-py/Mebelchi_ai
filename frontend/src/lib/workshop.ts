@@ -2,12 +2,12 @@ import type { OrderStatus, PaymentStatus, PriceInput, TaskPriority, TaskStatus, 
 
 export type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'primary'
 
-export const ORDER_STATUSES: OrderStatus[] = ['new', 'confirmed', 'in_production', 'ready', 'delivered', 'cancelled']
+export const ORDER_STATUSES: OrderStatus[] = ['new', 'pending', 'confirmed', 'rejected', 'in_production', 'quality_check', 'ready', 'delivery', 'delivered', 'cancelled']
 export const PAYMENT_STATUSES: PaymentStatus[] = ['unpaid', 'partially_paid', 'paid', 'refunded']
 export const TASK_STATUSES: TaskStatus[] = ['pending', 'in_progress', 'review', 'completed', 'cancelled']
 export const TASK_PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'urgent']
 
-export const orderTone: Record<OrderStatus, Tone> = { new: 'neutral', confirmed: 'primary', in_production: 'warning', ready: 'primary', delivered: 'success', cancelled: 'danger' }
+export const orderTone: Record<OrderStatus, Tone> = { new: 'neutral', pending: 'warning', confirmed: 'primary', rejected: 'danger', in_production: 'warning', quality_check: 'warning', ready: 'primary', delivery: 'primary', delivered: 'success', cancelled: 'danger' }
 export const payTone: Record<PaymentStatus, Tone> = { unpaid: 'danger', partially_paid: 'warning', paid: 'success', refunded: 'neutral' }
 export const taskTone: Record<TaskStatus, Tone> = { pending: 'neutral', in_progress: 'primary', review: 'warning', completed: 'success', cancelled: 'danger' }
 export const priorityTone: Record<TaskPriority, Tone> = { low: 'neutral', medium: 'primary', high: 'warning', urgent: 'danger' }

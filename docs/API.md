@@ -260,6 +260,58 @@ Steps: `goal` -> `photo` (optional) -> `elements` -> `size` -> `openings` (skipp
 
 Answering `style` builds the room; answering it again later (after `back`) **rebuilds it and replaces manual placements**. Items must stay inside the room and must not overlap (400 otherwise); standing in front of a door (800 mm zone) is a **warning** (`door_zone`), not an error. Item and answer changes return the whole flow plus `item` and `item_warnings`. A design built by a flow has `room_flow` (its id) in `designs/` responses; the web app uses it to reopen the room in the room designer. The size and structure of every cabinet are checked by the same engine as the furniture editor.
 
+### Room project files, settings and GLB (Phase 2A)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `rooms/{id}/export/` | the design as a `.mebelchi` file (`application/vnd.mebelchi+json`) |
+| POST | `rooms/import/` | multipart `file` (or the document as JSON) creates a NEW design; 400 names the place in the file (`furniture.2.position`, `checksum` ...); `unknown_models` lists catalogue ids this server lacks |
+| GET | `rooms/{id}/export-glb/` | the 3D room as a standard GLB (coloured boxes, no textures) |
+| PATCH | `rooms/{id}/settings/` | `wall`, `floor` (hex), `floor_material` (wood/laminate/tile/concrete/carpet), `light` `{intensity 0.2-2, warm}`, `camera` `{position, target, fov}`; furnish step only |
+
+`.mebelchi` is a versioned JSON project (room, openings, furniture with positions, colours, camera, light, catalogue ids of the models used) with a SHA-256 of its content. The checksum detects accidental damage or hand edits; it is **not** a signature and **not** copy protection: anyone holding the file can read it. Imports are validated like typed input, so a hand-written file cannot create an impossible room.
+
+## Furniture catalogue (`furniture/templates/`)
+`GET` list (plain array) / `GET {id}` for every signed-in user: approved items, plus your own workshop's items in any state; staff see all. Filters `category`, `workshop`, `status`, `is_available`, `search`, `ordering` (name, price, category, created_at).
+| Method | Path | Notes |
+|---|---|---|
+| POST | `furniture/templates/` | workshop owner (of an active workshop) or staff. Body: `workshop`, `category`, `name`, `description`, `price`, `currency`, `material`, `color`, `manufacturer`, `lead_time_days`, `is_available` and either `defaults` or `width`/`height`/`depth` (+ `thickness`, `shelves`, `doors`, `drawers`). Sizes are validated by the cabinet engine. Workshop items start `pending`; staff items are `approved` |
+| PATCH/PUT/DELETE | `furniture/templates/{id}/` | owner of the item's workshop or staff; DELETE hides the item (history kept). Changing name, category, sizes or the model sends an approved item back to review; price, stock and wording do not |
+| POST | `furniture/templates/{id}/review/` | staff only: `{status: approved\|rejected, note}` (a rejection needs a reason) |
+| POST/DELETE | `furniture/templates/{id}/images/` | multipart `view` (front/left/right/back/top/bottom) + `image`; one image per side, uploading again replaces it; `DELETE ?view=` |
+| POST/DELETE | `furniture/templates/{id}/model/` | multipart `file` = a `.glb` (glTF 2.0, <= 15 MB, no external references). DELETE returns to the generated model |
+| GET | `furniture/templates/{id}/export/glb\|gltf/` | the uploaded GLB, or a model generated from the sizes (plain boxes, not photo-real) |
+A workshop cannot have two active items with the same category, name and size (400). Pending and rejected items are never offered by the room designer. Image URLs are short-lived signed links.
+
+## Marketplace (`marketplace/`)
+Asking for matches creates nothing and contacts nobody; placing an order is the only step that reaches a workshop.
+| Method | Path | Notes |
+|---|---|---|
+| POST | `marketplace/match/` | body: `catalog_item` (id) or `furniture` `{category, width, height, depth, ...}`; optional `quantity`, `customer_location` `{latitude, longitude}`, `budget`, `deadline_days`, `currency`, `limit` (1-10, default 3), `exclude_workshops`. Returns ranked `options` (price, `price_tier` min/average/premium, distance (straight line), rating, lead time, load, `score` + `score_parts`, `flags`, price `quote`, `portfolio`), `tiers` over all quotes received, and `excluded` with the reason for every workshop left out |
+| POST | `marketplace/orders/` | match body + `workshop` (+ `customer_name`, `customer_phone`, `customer_address`, `notes`). The price is recomputed on the server (a sent price is ignored). Creates a `pending` order; the workshop has 24 h and is reminded every 4 h (max 6) |
+| GET | `marketplace/orders/`, `{id}/` | the customer's own orders (never employees, tasks or the commission split) |
+| POST | `marketplace/orders/{id}/cancel/` | before production and with nothing paid |
+| GET/POST | `marketplace/orders/{id}/alternatives/`, `reassign/` | rejected orders: other workshops (the refusing ones are never offered) / send it to one as a new pending order |
+| POST | `marketplace/orders/{id}/payments/` | `{amount, method, reference, idempotency_key}`: reports a payment; it counts only after an administrator confirms it |
+| POST | `marketplace/orders/{id}/review/` | `{stars 1-5, comment}` once, after completion; updates the workshop rating |
+Ranking (deterministic, no AI): hard filters (active, accepting orders, makes the category, complete price list, same currency, delivers there, meets the deadline, free capacity), then a score from price 35, distance 20, rating 20, lead time 15, load 10 (over-budget offers are demoted but shown). Prices come only from the workshop's own `price_list`, catalogue prices, transport rate (per km, from the straight-line distance) and assembly percentage; a workshop whose price list does not cover the furniture gets no quote and is listed under `excluded`.
+
+**Order statuses** (workshop `orders/`): `new` (made by the workshop), `pending` (marketplace, waiting), `confirmed` (= *Accepted*), `rejected` (reason required, final), `in_production`, `quality_check`, `ready`, `delivery`, `delivered` (= *Completed*), `cancelled`. `allowed_next_statuses` on each order lists the legal moves. Marketplace orders' price and payment fields cannot be edited by the workshop.
+
+**Workshop profile** (`workshops/{id}/`, owner): `latitude`+`longitude` (both or neither), `delivery_radius_km`, `categories`, `working_hours`, `max_active_orders`, `is_accepting_orders`, `lead_time_days`, `price_list` (engine PriceList: board per m2, edge tape, hardware, labour, markup), `transport_per_km`, `assembly_percent`; read-only `rating_avg`, `rating_count`.
+
+## Finance (`admin-api/finance/`, staff only)
+No payment provider is connected and no money moves through the platform: payments are records that an administrator confirms by hand.
+| Method | Path | Notes |
+|---|---|---|
+| GET/PATCH | `commission/` | `{commission_percent}` default **20.00**; new orders use the new rate, placed orders keep theirs (snapshot on the order) |
+| GET/POST | `payments/` | list (filters `status`, `kind`, `order`); POST `{order, kind: payment\|refund, amount, method, reference, confirm}` records (and with `confirm: true` confirms) |
+| POST | `payments/{id}/confirm/`, `reject/` | confirm adds to the order's `paid_amount`; reject needs `{reason}`. A payment can be decided once |
+| GET | `summary/` | `?from=&to=&workshop=`: booked orders (total / commission / workshop amount), collected payments and refunds, per-workshop share covered by money received |
+Commission = `round_half_up(total x percent / 100)`, workshop amount = total - commission (always adds up to the cent; $1000 -> $200 / $800). A full refund closes the order's payment record. Unique `idempotency_key` per order and unique receipt `reference` prevent double counting.
+
+## AI status (`ai/status/`)
+`GET` -> `{enabled, provider, capabilities, available_providers, message}`. With no provider configured `enabled` is false and nothing pretends otherwise. See `apps/ai/providers.py` to add one; prices, geometry and matching never call a provider.
+
 ## Administration (`admin-api/`, staff only, otherwise 403)
 
 ### Workshop review (`admin-api/workshops/`, platform admins only)

@@ -76,9 +76,9 @@ describe('OrderModal', () => {
   it('offers exactly the statuses the server allows and sends the chosen one with the note', async () => {
     open()
     const section = within(await screen.findByRole('region', { name: 'Change status' }))
-    expect(section.getAllByRole('button').map((b) => b.textContent)).toEqual(['Cancelled', 'Confirmed'])        // server order, nothing invented
+    expect(section.getAllByRole('button').map((b) => b.textContent)).toEqual(['Cancelled', 'Accepted'])        // server order, nothing invented
     fireEvent.change(section.getByLabelText('Note (optional)'), { target: { value: 'Deposit received' } })
-    fireEvent.click(section.getByRole('button', { name: 'Confirmed' }))
+    fireEvent.click(section.getByRole('button', { name: 'Accepted' }))
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/orders/100/', { status: 'confirmed', status_note: 'Deposit received' }))
   })
 
@@ -122,7 +122,7 @@ describe('OrderModal', () => {
     await screen.findByText('Ali Valiyev'); expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument(); expect(screen.getByText('History')).toBeInTheDocument(); unmount()
     open(order(), true, false)
     await screen.findByText('Ali Valiyev')
-    for (const n of ['Edit', 'Delete', 'Record payment', 'Confirmed']) expect(screen.queryByRole('button', { name: n })).not.toBeInTheDocument()
+    for (const n of ['Edit', 'Delete', 'Record payment', 'Accepted']) expect(screen.queryByRole('button', { name: n })).not.toBeInTheDocument()
   })
 
   it('lists the order\'s tasks and the status history with who and when', async () => {

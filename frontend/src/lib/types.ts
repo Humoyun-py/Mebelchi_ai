@@ -107,7 +107,7 @@ export interface Meta {
 export type WorkshopStatus = 'pending' | 'active' | 'inactive' | 'suspended' | 'rejected'
 export type MemberRole = 'owner' | 'employee'
 export type MemberStatus = 'invited' | 'active' | 'removed'
-export type OrderStatus = 'new' | 'confirmed' | 'in_production' | 'ready' | 'delivered' | 'cancelled'
+export type OrderStatus = 'new' | 'pending' | 'confirmed' | 'rejected' | 'in_production' | 'quality_check' | 'ready' | 'delivery' | 'delivered' | 'cancelled'
 export type PaymentStatus = 'unpaid' | 'partially_paid' | 'paid' | 'refunded'
 export type TaskStatus = 'pending' | 'in_progress' | 'review' | 'completed' | 'cancelled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -137,7 +137,7 @@ export interface Task {
 }
 export interface WorkshopStats {
   workshop: number; generated_at: string
-  orders: { total: number; new: number; confirmed: number; in_production: number; ready: number; delivered: number; cancelled: number }
+  orders: { total: number; new: number; pending?: number; rejected?: number; quality_check?: number; delivery?: number; confirmed: number; in_production: number; ready: number; delivered: number; cancelled: number }
   employees: { total: number; active: number; invited: number }
   tasks: { total: number; pending: number; in_progress: number; review: number; completed: number; cancelled: number; overdue: number }
   money: { total_order_value: string; paid_amount: string; outstanding_amount: string; note: string }

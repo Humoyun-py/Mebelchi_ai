@@ -64,6 +64,9 @@ INSTALLED_APPS = [
     "apps.audit",
     "apps.workshops",
     "apps.rooms",
+    "apps.ai",
+    "apps.finance",
+    "apps.marketplace",
     "apps.subscriptions",
     "apps.notifications",
     "apps.analytics",
@@ -117,6 +120,15 @@ AUDIT_ARCHIVE_AFTER_DAYS = int(env("AUDIT_ARCHIVE_AFTER_DAYS", "365"))
 AUTH_USER_MODEL = "users.User"
 # Telegram bot integration. The bot authenticates to the API with TELEGRAM_BOT_API_SECRET (fail-closed when empty).
 # TELEGRAM_BOT_TOKEN is used only by the backend to push notifications; the bot process has its own copy.
+# AI provider layer: disabled until a provider is registered in AI_PROVIDERS and AI_PROVIDER + AI_API_KEY are set (see apps/ai/providers.py)
+ORDER_REMINDER_HOURS = int(env("ORDER_REMINDER_HOURS", "4"))      # a workshop that has not answered a new order is reminded this often ...
+ORDER_REMINDER_MAX = int(env("ORDER_REMINDER_MAX", "6"))          # ... at most this many times (4 h x 6 = 24 h), then the customer and admins are told once
+AI_PROVIDER = env("AI_PROVIDER", "")
+AI_API_KEY = env("AI_API_KEY", "")
+AI_MODEL = env("AI_MODEL", "")
+AI_PROVIDERS: dict[str, str] = {}
+SMS_PROVIDER = env("SMS_PROVIDER", "")
+SMS_PROVIDERS: dict[str, str] = {}
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_BOT_API_SECRET = env("TELEGRAM_BOT_API_SECRET", "")
 AUTH_PASSWORD_VALIDATORS = [
@@ -164,6 +176,7 @@ CELERY_TIMEZONE = "UTC"
 CELERY_BEAT_SCHEDULE = {
     "prune-system-logs": {"task": "apps.analytics.tasks.prune_system_logs", "schedule": 60 * 60 * 24},
     "flush-expired-tokens": {"task": "apps.analytics.tasks.flush_expired_tokens", "schedule": 60 * 60 * 24},
+    "remind-pending-orders": {"task": "apps.marketplace.tasks.remind_pending_orders", "schedule": 15 * 60},
     "check-audit-size": {"task": "apps.audit.tasks.check_audit_size", "schedule": 60 * 60 * 24},
 }
 

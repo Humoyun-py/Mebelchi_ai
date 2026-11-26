@@ -50,7 +50,7 @@ class StatisticsTests(TestCase):
 
     def test_figures_come_from_the_records(self):
         d = self.s.c_owner.get(stats_url(self.s.ws)).data
-        self.assertEqual(d["orders"], {"total": 6, "new": 1, "confirmed": 1, "in_production": 1, "ready": 1, "delivered": 1, "completed": 1, "cancelled": 1})
+        self.assertEqual(d["orders"], {"total": 6, "new": 1, "pending": 0, "rejected": 0, "quality_check": 0, "delivery": 0, "confirmed": 1, "in_production": 1, "ready": 1, "delivered": 1, "completed": 1, "cancelled": 1})
         self.assertEqual(d["tasks"], {"total": 6, "pending": 2, "in_progress": 1, "review": 1, "completed": 1, "cancelled": 1, "overdue": 2})
         self.assertEqual(d["employees"], {"total": 3, "active": 2, "invited": 1})      # owner not counted; removed not counted
         m = d["money"]

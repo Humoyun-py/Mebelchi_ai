@@ -19,7 +19,7 @@ from apps.furniture.models import FurnitureTemplate
 from apps.galleries.models import GalleryImage
 from apps.geometry import room as geo
 
-from . import legacy
+from . import legacy, mebelchi
 from .models import RoomFlow
 
 SCHEMA = "room.v1"
@@ -33,7 +33,7 @@ class NotFound(Exception):
 
 
 def context() -> flow.FlowContext:
-    rows = FurnitureTemplate.objects.filter(is_active=True).order_by("category", "name")
+    rows = FurnitureTemplate.objects.filter(is_active=True, status=FurnitureTemplate.Status.APPROVED).order_by("category", "name")
     return flow.FlowContext(templates=[{"slug": t.slug, "category": t.category, "name": t.name, "defaults": t.defaults} for t in rows])
 
 
@@ -285,3 +285,79 @@ def _save(f: RoomFlow, d: Design, config: dict):
     d.save(update_fields=["config", "updated_at"])
     f.design = d                                      # the caller returns `f`: it must show the new config, not the one loaded before
     f.save(update_fields=["updated_at"])
+
+
+# ------------------------------------------------------------------------------------------------ settings, export, import
+
+def update_settings(user, pk: int, data: dict) -> RoomFlow:
+    """Wall / floor colour, floor material, light and camera of the 3D room. Colours change the look only, never the geometry."""
+    with transaction.atomic():
+        f = _lock(user, pk)
+        _require_active(f)
+        _require_furnish(f)
+        if not isinstance(data, dict) or not data:
+            raise geo.RoomError({"settings": "send the settings to change"})
+        unknown = set(data) - {"wall", "floor", "floor_material", "light", "camera"}
+        if unknown:
+            raise geo.RoomError({k: "is not a recognised setting" for k in sorted(unknown)})
+        d = _design_locked(f)
+        c = d.config
+        errors: dict[str, str] = {}
+        colors = dict(_colors(c))
+        for k in ("wall", "floor"):
+            if k in data:
+                if isinstance(data[k], str) and geo.HEX.match(data[k]):
+                    colors[k] = data[k]
+                else:
+                    errors[k] = "must be a hex colour like #c9a27a"
+        if "floor_material" in data:
+            if data["floor_material"] in mebelchi.FLOOR_MATERIALS:
+                c["floor_material"] = data["floor_material"]
+            else:
+                errors["floor_material"] = f"must be one of: {', '.join(mebelchi.FLOOR_MATERIALS)}"
+        if "light" in data:
+            c["light"] = mebelchi.validate_light(data["light"], errors) or c.get("light")
+        if "camera" in data:
+            c["camera"] = mebelchi.validate_camera(data["camera"], errors) or c.get("camera")
+        if errors:
+            raise geo.RoomError(errors)
+        c["colors"] = colors
+        _save(f, d, c)
+        return f
+
+
+def export_project(user, pk: int) -> tuple[str, dict]:
+    f = RoomFlow.objects.select_related("design").filter(pk=pk, owner=user).first()
+    if f is None:
+        raise NotFound
+    if not f.design_id:
+        raise flow.FlowError("The 3D room is not built yet, so there is nothing to export.")
+    return f.design.name, mebelchi.build(f.design.name, f.design.config)
+
+
+def export_glb(user, pk: int) -> tuple[str, bytes]:
+    from apps.geometry import exporters
+    f = RoomFlow.objects.select_related("design").filter(pk=pk, owner=user).first()
+    if f is None:
+        raise NotFound
+    return f.design.name if f.design_id else "room", exporters.to_glb(model(f)["boxes"])
+
+
+def import_project(user, raw) -> tuple[RoomFlow, list[str]]:
+    """Creates a new room design from a .mebelchi file. Returns (flow, catalogue ids in the file that this server does not know)."""
+    parsed = mebelchi.parse(raw)
+    cfg = parsed["config"]
+    ctx = context()
+    known = {t["slug"] for t in ctx.templates}
+    wanted = sorted({i["template"] for i in cfg["items"] if i.get("template")})
+    unknown = [s for s in wanted if s not in known]
+    with transaction.atomic():
+        if RoomFlow.objects.filter(owner=user, status=RoomFlow.Status.ACTIVE).count() >= MAX_ACTIVE_FLOWS:
+            raise flow.FlowError(f"You have {MAX_ACTIVE_FLOWS} unfinished room designs. Finish or delete one first.")
+        allowed = {t["slug"] for t in ctx.allowed_templates(cfg["goal"])}
+        answers = {"goal": cfg["goal"], "photo": {"skipped": True},
+                   "elements": {"doors": sum(o["type"] == "door" for o in cfg["openings"]), "windows": sum(o["type"] == "window" for o in cfg["openings"]),
+                                "furniture": [s for s in wanted if s in allowed]},
+                   "size": cfg["room"], "openings": cfg["openings"], "style": cfg["style"]}
+        d = Design.objects.create(owner=user, kind=Design.Kind.INTERIOR, name=parsed["name"], config=cfg)
+        return RoomFlow.objects.create(owner=user, step="furnish", answers=answers, design=d), unknown
