@@ -150,7 +150,7 @@ Every `optimize/` result is re-checked by an independent routine before it is re
 
 ## Workshops, orders and tasks
 
-A *workshop* is a tenant: its members, orders and tasks are isolated from every other workshop. Creating one needs the Furniture Maker role. Everything below is under `/api/v1/` and uses the usual conventions (Bearer auth, pagination, `{"error": ...}` envelope).
+A *workshop* is a tenant: its members, orders and tasks are isolated from every other workshop. Creating one needs the **Workshop** role, which only a platform administrator can assign (`PATCH admin-api/users/{id}/` with `{"role": "workshop"}`; users cannot pick it themselves), and every new workshop starts as **`pending`** until an administrator approves it. Everything below is under `/api/v1/` and uses the usual conventions (Bearer auth, pagination, `{"error": ...}` envelope).
 
 **Who may do what** (checked on the server for every request; an object you may not see answers 404, one you may see but not change answers 403):
 
@@ -162,15 +162,15 @@ A *workshop* is a tenant: its members, orders and tasks are isolated from every 
 | Tasks | all: create, assign, edit, change any valid status, delete (rules below) | read their assigned tasks; change only the status (`pending -> in_progress -> review`, `review -> in_progress`) | nothing |
 | Statistics | yes | no (403) | nothing |
 
-An inactive workshop is read-only; a suspended one (set by platform staff in the Django admin) is frozen even for its owner. Platform staff have no special access to workshop data through these endpoints.
+Workshop status: `pending` (waiting for approval) -> `active`; or `rejected` (an administrator declined it and gave a reason in `review_note`, which the owner can read). Only `active` workshops accept orders, tasks and invitations; `pending`, `rejected`, `inactive` and `suspended` ones are read-only, and a suspended one is frozen even for its owner. The owner can switch only between `active` and `inactive`; every other change is an administrator decision (see "Administration"). Platform staff have no special access to workshop data through these endpoints.
 
 ### Workshops
 
 | Method | Path | Notes |
 |---|---|---|
 | GET | `workshops/` | workshops where you are an active member; each has `my_role`. Filters `status`; `?search=`; `?ordering=name\|created_at\|status` |
-| POST | `workshops/` | `{name, description?, phone?, email?, address?}`; you become the owner. `slug` is generated and never changes |
-| GET / PATCH | `workshops/{id}/` | PATCH owner only; `status` may be `active` or `inactive` (`suspended` is staff-only) |
+| POST | `workshops/` | Workshop role only (403 otherwise). `{name, description?, phone?, email?, address?}`; you become the owner; the workshop is created `pending`. `slug` is generated and never changes |
+| GET / PATCH | `workshops/{id}/` | PATCH owner only; `status` may be `active` or `inactive` (approval, rejection and suspension are administrator-only; `review_note` is read-only) |
 | DELETE | `workshops/{id}/` | owner only; **409** if the workshop has orders or tasks (set it `inactive` instead) |
 | GET | `workshops/{id}/statistics/` | owner only, see below |
 | POST / DELETE | `workshops/{id}/logo/` | multipart `logo` (JPG/PNG/WEBP, 10 MB, validated by decoding); `logo_url` is a 15-minute signed link |
@@ -239,6 +239,19 @@ curl -X PATCH /api/v1/tasks/1/ -H "Authorization: Bearer $EMPLOYEE_T" -H 'Conten
 ```
 
 ## Administration (`admin-api/`, staff only, otherwise 403)
+
+### Workshop review (`admin-api/workshops/`, platform admins only)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `admin-api/workshops/` | filters `status` (`pending`, `active`, `rejected`, `suspended`, `inactive`), `kind`, `city`; `?search=` (name, slug, city, owner email); each row has `owner_email`, `member_count`, `order_count`, `review_note` |
+| POST | `admin-api/workshops/{id}/approve/` | `{note?}`; `pending`, `rejected`, `suspended` or `inactive` -> `active` |
+| POST | `admin-api/workshops/{id}/reject/` | `{note}` is **required** (400 without it); only `pending` -> `rejected`; the owner is notified and sees the reason in `review_note` |
+| POST | `admin-api/workshops/{id}/suspend/` | `{note?}`; `active` -> `suspended` |
+| GET | `admin-api/audit-logs/?model=workshops.workshop&object_id={id}` | the history of one workshop (events `workshop.created`, `.approved`, `.rejected`, `.suspended`, `.reactivated`, ...) |
+| PATCH | `admin-api/users/{id}/` | `{role}` assigns `homeowner`, `maker` or `workshop`; audited as `user.role_changed` |
+
+A decision that is not allowed from the current status answers 400 and changes nothing (no audit row, no notification). Two administrators deciding at once: the second one gets 400. Administrators have no access to a workshop's orders or tasks.
 
 `stats/`, `users/` (PATCH `is_active`, `is_staff`, `role`; cannot lock yourself out; only superusers change `is_staff`), `projects/`, `subscriptions/` (PATCH `plan_slug`), `payments/` (+ `POST {id}/confirm/` activates the plan, `{id}/reject/`), `logs/` (5xx errors), `features/` (CRUD flags), `broadcast/` (POST notification to all users), `storage/`.
 

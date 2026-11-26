@@ -1,4 +1,4 @@
-export type Role = 'maker' | 'homeowner'
+export type Role = 'maker' | 'homeowner' | 'workshop'
 export interface User {
   id: number; email: string; first_name: string; last_name: string; full_name: string; phone: string
   avatar_url: string | null; role: Role; role_selected: boolean; theme: 'dark' | 'light'; language: 'en' | 'uz' | 'ru'
@@ -104,7 +104,7 @@ export interface Meta {
 }
 
 // ---- workshops (Phase 3 API)
-export type WorkshopStatus = 'active' | 'inactive' | 'suspended'
+export type WorkshopStatus = 'pending' | 'active' | 'inactive' | 'suspended' | 'rejected'
 export type MemberRole = 'owner' | 'employee'
 export type MemberStatus = 'invited' | 'active' | 'removed'
 export type OrderStatus = 'new' | 'confirmed' | 'in_production' | 'ready' | 'delivered' | 'cancelled'
@@ -114,7 +114,7 @@ export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 export interface PersonRef { id: number; full_name: string; email?: string }
 export interface Workshop {
   id: number; name: string; slug: string; description: string; owner: PersonRef | null; phone: string; email: string; address: string
-  logo_url: string | null; status: WorkshopStatus; my_role: MemberRole | null; created_at: string; updated_at: string
+  logo_url: string | null; status: WorkshopStatus; review_note?: string; my_role: MemberRole | null; created_at: string; updated_at: string
 }
 export interface Member {
   id: number; workshop: number; user: PersonRef; role: MemberRole; status: MemberStatus; joined_at: string | null; removed_at: string | null; created_at: string

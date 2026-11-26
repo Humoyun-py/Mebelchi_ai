@@ -31,7 +31,7 @@ export default function WorkshopDetail() {
     <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-8">
       <Breadcrumbs items={[{ label: t('side.workshops'), to: '/app/workshops' }, { label: ws.name }]} />
       <div className="flex flex-wrap items-center gap-3"><h1 className="text-2xl font-bold">{ws.name}</h1><WorkshopBadge s={ws.status} />{ws.my_role && <RoleBadge r={ws.my_role} />}</div>
-      {!writable && <p role="status" className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning"><Lock size={15} />{ws.status === 'suspended' ? t('ws.bannerSuspended') : t('ws.bannerInactive')}</p>}
+      {!writable && <p role="status" className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning"><Lock size={15} />{ws.status === 'suspended' ? t('ws.bannerSuspended') : ws.status === 'pending' ? t('ws.bannerPending') : ws.status === 'rejected' ? `${t('ws.bannerRejected')} ${ws.review_note ?? ''}` : t('ws.bannerInactive')}</p>}
       <Tabs tabs={tabs} value={tab} onChange={(v) => setParams({ tab: v }, { replace: true })} />
       <div>{{
         overview: <OverviewTab ws={ws} />, orders: <OrdersTab ws={ws} owner={owner} writable={writable} />, tasks: <TasksTab ws={ws} owner={owner} writable={writable} />,

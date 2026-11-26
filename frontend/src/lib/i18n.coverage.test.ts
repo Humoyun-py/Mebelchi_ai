@@ -13,7 +13,7 @@ describe('every translation key used in the UI exists', () => {
   it('defines the dynamic key families in all languages', () => {
     const fam: string[] = [
       ...ORDER_STATUSES.map((s) => `order.st.${s}`), ...PAYMENT_STATUSES.map((s) => `pay.${s}`), ...TASK_STATUSES.map((s) => `task.st.${s}`), ...TASK_PRIORITIES.map((s) => `task.pr.${s}`),
-      ...['active', 'inactive', 'suspended'].map((s) => `ws.st.${s}`), ...['owner', 'employee'].map((s) => `role.${s}`), ...['active', 'invited', 'removed'].map((s) => `mstatus.${s}`),
+      ...['pending', 'active', 'inactive', 'suspended', 'rejected'].map((s) => `ws.st.${s}`), ...['owner', 'employee'].map((s) => `role.${s}`), ...['active', 'invited', 'removed'].map((s) => `mstatus.${s}`),
       ...['remove', 'leave', 'transfer'].flatMap((k) => [`team.${k}Title`, `team.${k}Do`]), ...['standard', 'kitchen_base', 'kitchen_wall', 'sliding_wardrobe'].map((s) => `type.${s}`),
       ...['kitchen_base', 'kitchen_wall', 'sliding_wardrobe'].map((s) => `type.${s}.hint`), ...['board', 'edge_banding', 'hardware', 'labor'].map((s) => `price.cat.${s}`),
       ...['perspective', 'front', 'side', 'top'].map((s) => `ed.view.${s}`), ...['carcass', 'fronts', 'back', 'handle'].map((s) => `ed.group.${s}`), ...['carcass', 'shelf', 'door', 'drawer', 'back', 'handle'].map((s) => `ed.kind.${s}`),

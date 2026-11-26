@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, CreditCard, Flag, FolderKanban, HardDrive, History, Send, Users } from 'lucide-react'
+import { Activity, Building2, CreditCard, Flag, FolderKanban, HardDrive, History, Send, Users } from 'lucide-react'
 import { api, apiError } from '../../lib/api'
 import { fmtAgo, fmtBytes, fmtDateTime } from '../../lib/format'
 import type { AuditEntry, Page } from '../../lib/types'
@@ -11,8 +11,9 @@ import { Badge, type Column, DataTable, ErrorState, Pagination, Skeleton, Stat }
 import { Tabs } from '../../components/ui/Tabs'
 import { toast } from '../../components/ui/Toast'
 import { useDebounced } from '../../hooks/queries'
+import { WorkshopsTab } from './WorkshopsTab'
 
-type Tab = 'overview' | 'users' | 'projects' | 'billing' | 'logs' | 'audit' | 'features' | 'storage'
+type Tab = 'overview' | 'users' | 'workshops' | 'projects' | 'billing' | 'logs' | 'audit' | 'features' | 'storage'
 const get = async <T,>(url: string, params?: object) => (await api.get<T>(`/admin-api/${url}`, { params })).data
 
 interface Stats { users: { total: number; active_30d: number; by_role: { role: string; n: number }[] }; projects: { total: number; active: number }; subscriptions: { plan__name: string; n: number }[]
@@ -51,7 +52,9 @@ function UsersTab() {
   const patch = useMutation({ mutationFn: ({ id, ...b }: { id: number } & Partial<AUser>) => api.patch(`/admin-api/users/${id}/`, b), onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'users/'] }); toast.success('Updated') }, onError: (e) => toast.error(apiError(e).message) })
   const cols: Column<AUser>[] = [
     { key: 'e', header: 'User', render: (u) => <div><p className="font-medium">{u.first_name} {u.last_name}</p><p className="text-xs text-muted">{u.email}</p></div> },
-    { key: 'r', header: 'Role', className: 'hidden sm:table-cell', render: (u) => <Badge>{u.role}</Badge> }, { key: 'p', header: 'Plan', className: 'hidden md:table-cell', render: (u) => u.plan },
+    { key: 'r', header: 'Role', className: 'hidden sm:table-cell', render: (u) => (
+      <select aria-label={`Role ${u.email}`} value={u.role} disabled={patch.isPending} onChange={(e) => patch.mutate({ id: u.id, role: e.target.value })} className="h-8 rounded-lg border border-line bg-card2 px-2 text-sm">
+        <option value="homeowner">homeowner</option><option value="maker">maker</option><option value="workshop">workshop</option></select>) }, { key: 'p', header: 'Plan', className: 'hidden md:table-cell', render: (u) => u.plan },
     { key: 'c', header: 'Projects', className: 'num hidden md:table-cell', render: (u) => u.project_count }, { key: 'j', header: 'Joined', className: 'hidden lg:table-cell text-muted', render: (u) => fmtAgo(u.date_joined) },
     { key: 'a', header: 'Active', render: (u) => <Switch label={`Active ${u.email}`} checked={u.is_active} onChange={(v) => patch.mutate({ id: u.id, is_active: v })} /> },
     { key: 's', header: 'Admin', render: (u) => <Switch label={`Admin ${u.email}`} checked={u.is_staff} onChange={(v) => patch.mutate({ id: u.id, is_staff: v })} /> }]
@@ -139,7 +142,7 @@ export default function Admin() {
   const [tab, setTab] = useState<Tab>('overview')
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-8"><h1 className="text-2xl font-bold">Administration</h1><p className="mt-1 text-sm text-muted">Platform-wide data. Access is restricted to staff.</p>
-      <div className="mt-5"><Tabs tabs={[{ id: 'overview', label: 'Overview', icon: <Activity size={15} /> }, { id: 'users', label: 'Users', icon: <Users size={15} /> }, { id: 'projects', label: 'Projects', icon: <FolderKanban size={15} /> }, { id: 'billing', label: 'Billing', icon: <CreditCard size={15} /> }, { id: 'logs', label: 'Logs', icon: <Activity size={15} /> }, { id: 'audit', label: 'Audit log', icon: <History size={15} /> }, { id: 'features', label: 'Features', icon: <Flag size={15} /> }, { id: 'storage', label: 'Storage', icon: <HardDrive size={15} /> }]} value={tab} onChange={setTab} /></div>
-      <div className="mt-6">{{ overview: <Overview />, users: <UsersTab />, projects: <ProjectsTab />, billing: <BillingTab />, logs: <LogsTab />, audit: <AuditTab />, features: <FeaturesTab />, storage: <StorageTab /> }[tab]}</div></div>
+      <div className="mt-5"><Tabs tabs={[{ id: 'overview', label: 'Overview', icon: <Activity size={15} /> }, { id: 'users', label: 'Users', icon: <Users size={15} /> }, { id: 'workshops', label: 'Workshops', icon: <Building2 size={15} /> }, { id: 'projects', label: 'Projects', icon: <FolderKanban size={15} /> }, { id: 'billing', label: 'Billing', icon: <CreditCard size={15} /> }, { id: 'logs', label: 'Logs', icon: <Activity size={15} /> }, { id: 'audit', label: 'Audit log', icon: <History size={15} /> }, { id: 'features', label: 'Features', icon: <Flag size={15} /> }, { id: 'storage', label: 'Storage', icon: <HardDrive size={15} /> }]} value={tab} onChange={setTab} /></div>
+      <div className="mt-6">{{ overview: <Overview />, users: <UsersTab />, workshops: <WorkshopsTab />, projects: <ProjectsTab />, billing: <BillingTab />, logs: <LogsTab />, audit: <AuditTab />, features: <FeaturesTab />, storage: <StorageTab /> }[tab]}</div></div>
   )
 }

@@ -18,6 +18,11 @@ class GalleryImageSerializer(serializers.ModelSerializer):
     def get_url(self, obj):
         return f"/api/v1/gallery/{obj.pk}/file/?sig={sign_file('image', obj.pk)}"
 
+    def validate(self, attrs):
+        if self.instance is None and "image" not in attrs:
+            raise serializers.ValidationError({"image": "No image was submitted."})
+        return attrs
+
     def validate_project(self, p):
         if p and p.owner_id != self.context["request"].user.id:
             raise serializers.ValidationError("Project not found.")

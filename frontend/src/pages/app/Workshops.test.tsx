@@ -25,18 +25,19 @@ describe('Workshops page', () => {
     expect(await screen.findByText('Alpha Workshop')).toBeInTheDocument()
   })
 
-  it('an empty list invites a maker to create a workshop', async () => {
+  it('an empty list invites a workshop account to create a workshop', async () => {
+    signIn({ role: 'workshop' })
     routeGet({ '/workshops/': page([]), '/workshop-invitations/': page([]) })
     renderApp(<Workshops />)
     expect(await screen.findByText('No workshops yet')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /New workshop/ }).length).toBeGreaterThan(0)
   })
 
-  it('a home owner cannot create workshops and is told why', async () => {
-    signIn({ role: 'homeowner' })
+  it.each(['homeowner', 'maker'] as const)('a %s account cannot create workshops and is told why', async (role) => {
+    signIn({ role })
     routeGet({ '/workshops/': page([]), '/workshop-invitations/': page([]) })
     renderApp(<Workshops />)
-    expect(await screen.findByText(/needs the Furniture Maker role/)).toBeInTheDocument()
+    expect(await screen.findByText(/needs a Workshop account/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /New workshop/ })).not.toBeInTheDocument()
   })
 
@@ -52,6 +53,7 @@ describe('Workshops page', () => {
   })
 
   it('creating a workshop posts the form and opens it', async () => {
+    signIn({ role: 'workshop' })
     routeGet({ '/workshops/': page([]), '/workshop-invitations/': page([]) })
     vi.mocked(api.post).mockResolvedValue({ data: { id: 42 } } as never)
     renderApp(<Workshops />, { path: '/app/workshops', url: '/app/workshops' })
@@ -65,6 +67,7 @@ describe('Workshops page', () => {
   })
 
   it('shows the server message when creation is refused', async () => {
+    signIn({ role: 'workshop' })
     routeGet({ '/workshops/': page([]), '/workshop-invitations/': page([]) })
     vi.mocked(api.post).mockRejectedValue(httpError(400, { error: { status: 400, detail: 'Validation failed.', fields: { name: ['Enter at least 2 characters.'] } } }))
     renderApp(<Workshops />)

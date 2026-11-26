@@ -73,7 +73,7 @@ function SidebarBody({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
   const pinned = useProjects({ pinned: true, page_size: 5 }); const recent = useProjects({ ordering: '-updated_at', page_size: 6 })
   const folders = useQuery({ queryKey: ['folders'], queryFn: async () => (await api.get<Folder[]>('/folders/')).data })
   const addFolder = useMutation({ mutationFn: async () => api.post('/folders/', { name: folderName.trim() }), onSuccess: () => { qc.invalidateQueries({ queryKey: ['folders'] }); setFolderOpen(false); setFolderName(''); toast.success('Folder created') }, onError: (e) => toast.error(apiError(e).message) })
-  const maker = user.role === 'maker'
+  const maker = user.role !== 'homeowner'
   const sec = (s: string) => !collapsed && <p className="mb-1.5 mt-5 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted/80">{s}</p>
   const go = () => onNavigate?.()
   return (

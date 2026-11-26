@@ -11,7 +11,7 @@ export const orderTone: Record<OrderStatus, Tone> = { new: 'neutral', confirmed:
 export const payTone: Record<PaymentStatus, Tone> = { unpaid: 'danger', partially_paid: 'warning', paid: 'success', refunded: 'neutral' }
 export const taskTone: Record<TaskStatus, Tone> = { pending: 'neutral', in_progress: 'primary', review: 'warning', completed: 'success', cancelled: 'danger' }
 export const priorityTone: Record<TaskPriority, Tone> = { low: 'neutral', medium: 'primary', high: 'warning', urgent: 'danger' }
-export const workshopTone: Record<WorkshopStatus, Tone> = { active: 'success', inactive: 'neutral', suspended: 'danger' }
+export const workshopTone: Record<WorkshopStatus, Tone> = { pending: 'warning', active: 'success', inactive: 'neutral', suspended: 'danger', rejected: 'danger' }
 
 /** A text field that may hold a user-typed number: '' and non-numbers mean "not provided". Accepts a decimal comma. */
 export function parseAmount(v: string): number | null {

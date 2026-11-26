@@ -22,6 +22,11 @@ class UserFileSerializer(serializers.ModelSerializer):
     def get_url(self, obj):
         return f"/api/v1/files/{obj.pk}/download/?sig={sign_file('file', obj.pk)}"
 
+    def validate(self, attrs):
+        if self.instance is None and "file" not in attrs:
+            raise serializers.ValidationError({"file": "No file was submitted."})
+        return attrs
+
     def validate_project(self, p):
         if p and p.owner_id != self.context["request"].user.id:
             raise serializers.ValidationError("Project not found.")
