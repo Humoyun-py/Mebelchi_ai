@@ -20,6 +20,9 @@ class DesignViewSet(OwnedModelViewSet):
     filterset_fields = ["kind", "project"]
     search_fields = ["name"]
 
+    def get_queryset(self):
+        return super().get_queryset().select_related("room_flow")      # one query for the list, not one per design
+
     @extend_schema(responses=OpenApiTypes.OBJECT)
     @action(detail=True, methods=["get"])
     def model(self, request, pk=None):

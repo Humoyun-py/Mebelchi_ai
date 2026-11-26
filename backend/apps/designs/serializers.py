@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from . import furniture
@@ -5,10 +6,18 @@ from .models import Design
 
 
 class DesignSerializer(serializers.ModelSerializer):
+    room_flow = serializers.SerializerMethodField(help_text="Id of the room-design conversation that built this design, if any (opens it in the room designer).")
+
     class Meta:
         model = Design
-        fields = ["id", "name", "kind", "project", "config", "room_image", "created_at", "updated_at"]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        fields = ["id", "name", "kind", "project", "config", "room_image", "room_flow", "created_at", "updated_at"]
+        read_only_fields = ["id", "room_flow", "created_at", "updated_at"]
+
+    def get_room_flow(self, obj) -> int | None:
+        try:
+            return obj.room_flow.pk
+        except ObjectDoesNotExist:
+            return None
 
     def _owned(self, v, label):
         if v and v.owner_id != self.context["request"].user.id:

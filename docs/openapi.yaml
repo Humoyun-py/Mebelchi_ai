@@ -3909,6 +3909,340 @@ paths:
               schema:
                 $ref: '#/components/schemas/Project'
           description: ''
+  /api/v1/rooms/:
+    get:
+      operationId: rooms_list
+      description: |-
+        Room design conversation (goal -> photo -> elements -> size -> openings -> style -> furnish -> done) and the furniture in the room.
+        Every route is scoped to the signed-in user: a flow that is not yours answers 404.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: rooms_create
+      description: |-
+        Room design conversation (goal -> photo -> elements -> size -> openings -> style -> furnish -> done) and the furniture in the room.
+        Every route is scoped to the signed-in user: a flow that is not yours answers 404.
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/rooms/{id}/:
+    get:
+      operationId: rooms_retrieve
+      description: |-
+        Room design conversation (goal -> photo -> elements -> size -> openings -> style -> furnish -> done) and the furniture in the room.
+        Every route is scoped to the signed-in user: a flow that is not yours answers 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: rooms_destroy
+      description: |-
+        Room design conversation (goal -> photo -> elements -> size -> openings -> style -> furnish -> done) and the furniture in the room.
+        Every route is scoped to the signed-in user: a flow that is not yours answers 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/rooms/{id}/answer/:
+    post:
+      operationId: rooms_answer_create
+      description: 'Body `{"step": "<current step>", "value": ...}`. 409 when `step`
+        is not the current step.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/rooms/{id}/back/:
+    post:
+      operationId: rooms_back_create
+      description: |-
+        Room design conversation (goal -> photo -> elements -> size -> openings -> style -> furnish -> done) and the furniture in the room.
+        Every route is scoped to the signed-in user: a flow that is not yours answers 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/rooms/{id}/finish/:
+    post:
+      operationId: rooms_finish_create
+      description: |-
+        Room design conversation (goal -> photo -> elements -> size -> openings -> style -> furnish -> done) and the furniture in the room.
+        Every route is scoped to the signed-in user: a flow that is not yours answers 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/rooms/{id}/items/:
+    post:
+      operationId: rooms_items_create
+      description: '`{"template": slug, x?, z?, rot?, width?, depth?, height?, shelves?,
+        doors?, drawers?, color?, name?}`; without x and z the item is placed automatically.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/rooms/{id}/items/{item_id}/:
+    patch:
+      operationId: rooms_items_partial_update
+      description: |-
+        Room design conversation (goal -> photo -> elements -> size -> openings -> style -> furnish -> done) and the furniture in the room.
+        Every route is scoped to the signed-in user: a flow that is not yours answers 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          pattern: ^[0-9a-zA-Z_-]{1,64}$
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: rooms_items_destroy
+      description: |-
+        Room design conversation (goal -> photo -> elements -> size -> openings -> style -> furnish -> done) and the furniture in the room.
+        Every route is scoped to the signed-in user: a flow that is not yours answers 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          pattern: ^[0-9a-zA-Z_-]{1,64}$
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/rooms/{id}/model/:
+    get:
+      operationId: rooms_model_retrieve
+      description: Boxes for the 3D viewer (walls, floor, ceiling, furniture), rebuilt
+        from the saved config.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/rooms/{id}/reset-layout/:
+    post:
+      operationId: rooms_reset_layout_create
+      description: |-
+        Room design conversation (goal -> photo -> elements -> size -> openings -> style -> furnish -> done) and the furniture in the room.
+        Every route is scoped to the signed-in user: a flow that is not yours answers 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/subscriptions/me/:
     get:
       operationId: subscriptions_me_retrieve
@@ -5742,14 +6076,12 @@ components:
           nullable: true
         sheet_length:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         sheet_width:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         kerf:
           type: string
           format: decimal
@@ -5806,9 +6138,8 @@ components:
           pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
         quantity:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         material:
           type: string
           maxLength: 40
@@ -5816,14 +6147,12 @@ components:
           type: boolean
         edge_w:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 32767
           minimum: 0
-          format: int64
         edge_h:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 32767
           minimum: 0
-          format: int64
         edge_note:
           type: string
           maxLength: 120
@@ -5851,6 +6180,12 @@ components:
         room_image:
           type: integer
           nullable: true
+        room_flow:
+          type: integer
+          nullable: true
+          readOnly: true
+          description: Id of the room-design conversation that built this design,
+            if any (opens it in the room designer).
         created_at:
           type: string
           format: date-time
@@ -5863,6 +6198,7 @@ components:
       - created_at
       - id
       - name
+      - room_flow
       - updated_at
     DesignKindEnum:
       enum:
@@ -6054,9 +6390,8 @@ components:
           maxLength: 300
         status_code:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 32767
           minimum: 0
-          format: int64
           nullable: true
         created_at:
           type: string
@@ -6109,14 +6444,12 @@ components:
           pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
         sheet_length:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         sheet_width:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         price_per_sheet:
           type: string
           format: decimal
@@ -7124,14 +7457,12 @@ components:
           nullable: true
         sheet_length:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         sheet_width:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         kerf:
           type: string
           format: decimal
@@ -7176,6 +7507,12 @@ components:
         room_image:
           type: integer
           nullable: true
+        room_flow:
+          type: integer
+          nullable: true
+          readOnly: true
+          description: Id of the room-design conversation that built this design,
+            if any (opens it in the room designer).
         created_at:
           type: string
           format: date-time
@@ -7272,14 +7609,12 @@ components:
           pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
         sheet_length:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         sheet_width:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         price_per_sheet:
           type: string
           format: decimal
@@ -7447,23 +7782,20 @@ components:
           nullable: true
         width:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
           nullable: true
           description: mm
         height:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
           nullable: true
           description: mm
         depth:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
           nullable: true
           description: mm
         thickness:
@@ -7714,20 +8046,17 @@ components:
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
         storage_mb:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
         max_projects:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
           description: 0 = unlimited
         max_exports_per_month:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
           description: 0 = unlimited
         features: {}
       required:
@@ -7823,23 +8152,20 @@ components:
           nullable: true
         width:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
           nullable: true
           description: mm
         height:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
           nullable: true
           description: mm
         depth:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
           nullable: true
           description: mm
         thickness:

@@ -1,5 +1,4 @@
-"""`rooms` currently holds only the RoomFlow model. No view, serializer or URL uses it (the room chat runs on apps.conversations);
-these tests pin down what the model guarantees so the planned room API can rely on it."""
+"""What the RoomFlow model guarantees; the API on top of it is tested in test_api.py."""
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
@@ -46,9 +45,3 @@ class RoomFlowModelTests(TestCase):
         RoomFlow.objects.filter(pk=a.pk).update(step="size")      # touches nothing but the row; updated_at is auto_now so use save
         a.refresh_from_db(); a.save()
         self.assertEqual(list(RoomFlow.objects.values_list("pk", flat=True)), [a.pk, b.pk])
-
-    def test_there_is_no_public_api_yet(self):
-        from django.urls import Resolver404, resolve
-        for path in ("/api/v1/rooms/", "/api/v1/room-flows/"):
-            with self.assertRaises(Resolver404):
-                resolve(path)
