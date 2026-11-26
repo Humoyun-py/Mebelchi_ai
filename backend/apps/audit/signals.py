@@ -34,6 +34,7 @@ TRACKED: dict[str, set[str]] = {
     # customer contact details are personal data: the log shows that they changed, not their values
     "workshops.Order": {"customer_phone", "customer_email", "customer_address"},
     "workshops.Task": set(),
+    "furniture.FurnitureTemplate": set(),
 }
 SENSITIVE_WORDS = ("password", "token", "secret", "api_key")
 MAX_VALUE_LEN = 200

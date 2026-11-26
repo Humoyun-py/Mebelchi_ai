@@ -15,12 +15,13 @@ class TemplateTests(TestCase):
         self.assertEqual(APIClient().get(URL).status_code, 401)
         self.assertEqual(APIClient().get("/api/v1/furniture/categories/").status_code, 401)
 
-    def test_templates_are_read_only(self):
+    def test_platform_templates_cannot_be_changed_by_ordinary_users(self):
+        # Phase 2A opened the catalogue to workshops (see test_catalog.py); a user without a workshop still cannot write.
         t = FurnitureTemplate.objects.first()
         self.assertIsNotNone(t, "the seeded catalogue is missing")
-        self.assertEqual(self.c.post(URL, {"slug": "x", "category": "c", "name": "n"}, format="json").status_code, 405)
-        self.assertEqual(self.c.patch(f"{URL}{t.pk}/", {"name": "x"}, format="json").status_code, 405)
-        self.assertEqual(self.c.delete(f"{URL}{t.pk}/").status_code, 405)
+        self.assertEqual(self.c.post(URL, {"category": "kitchen", "name": "n", "width": 600, "height": 700, "depth": 500}, format="json").status_code, 400)
+        self.assertEqual(self.c.patch(f"{URL}{t.pk}/", {"name": "x"}, format="json").status_code, 403)
+        self.assertEqual(self.c.delete(f"{URL}{t.pk}/").status_code, 403)
 
     def test_inactive_templates_are_hidden_everywhere(self):
         t = FurnitureTemplate.objects.create(slug="retired", category="wardrobe", name="Retired", is_active=False)

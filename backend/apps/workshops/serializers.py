@@ -9,7 +9,7 @@ from apps.projects.models import Project
 from . import access, services
 from .models import Order, OrderStatusChange, Task, TaskStatusChange, Workshop, WorkshopMember
 
-MONEY_FIELDS = ("total_price", "paid_amount", "payment_status", "outstanding_amount")
+MONEY_FIELDS = ("total_price", "paid_amount", "payment_status", "outstanding_amount", "commission_percent", "commission_amount", "workshop_amount", "quote")
 
 
 class ScopedPK(serializers.PrimaryKeyRelatedField):
@@ -57,8 +57,9 @@ class WorkshopSerializer(OwnedIdsMixin, serializers.ModelSerializer):
     class Meta:
         model = Workshop
         fields = ["id", "name", "kind", "city", "slug", "description", "owner", "phone", "email", "address", "logo_url", "status", "review_note", "my_role",
-                  "created_at", "updated_at"]
-        read_only_fields = ["id", "slug", "review_note", "created_at", "updated_at"]
+                  "latitude", "longitude", "delivery_radius_km", "categories", "working_hours", "max_active_orders", "is_accepting_orders", "lead_time_days",
+                  "price_list", "transport_per_km", "assembly_percent", "rating_avg", "rating_count", "created_at", "updated_at"]
+        read_only_fields = ["id", "slug", "review_note", "rating_avg", "rating_count", "created_at", "updated_at"]
 
     def get_owner(self, obj):
         return _person(obj.owner)
@@ -79,6 +80,27 @@ class WorkshopSerializer(OwnedIdsMixin, serializers.ModelSerializer):
         if len(v) < 2:
             raise serializers.ValidationError("Enter at least 2 characters.")
         return v
+
+    def validate_categories(self, v):
+        from apps.furniture.seed_data import CATEGORIES
+        known = {c["slug"] for c in CATEGORIES}
+        if not isinstance(v, list) or any(c not in known for c in v):
+            raise serializers.ValidationError(f"Must be a list of: {', '.join(sorted(known))}.")
+        return sorted(set(v))
+
+    def validate_price_list(self, v):
+        from apps.calculations import engine
+        try:
+            engine.parse_prices(v or {})
+        except engine.EngineValidationError as e:
+            raise serializers.ValidationError("; ".join(f"{k}: {m}" for k, m in e.errors.items()))
+        return v or {}
+
+    def validate(self, attrs):
+        lat, lng = attrs.get("latitude", getattr(self.instance, "latitude", None)), attrs.get("longitude", getattr(self.instance, "longitude", None))
+        if (lat is None) != (lng is None):
+            raise serializers.ValidationError({"latitude": "Enter both latitude and longitude, or neither."})
+        return attrs
 
 
 class LogoSerializer(serializers.ModelSerializer):
@@ -155,8 +177,10 @@ class OrderSerializer(OwnedIdsMixin, serializers.ModelSerializer):
         fields = ["id", "order_number", "workshop", "customer_name", "customer_phone", "customer_email", "customer_address", "customer_user",
                   "title", "description", "related_project", "project", "total_price", "paid_amount", "outstanding_amount", "payment_status",
                   "status", "status_note", "allowed_next_statuses", "assigned_employee", "assigned_employee_detail", "start_date", "deadline", "completed_at",
-                  "created_by", "created_at", "updated_at"]
-        read_only_fields = ["id", "order_number", "completed_at", "created_by", "created_at", "updated_at", "customer_user"]
+                  "source", "catalog_item", "price_tier", "quote", "delivery_distance_km", "commission_percent", "commission_amount", "workshop_amount",
+                  "rejection_reason", "responded_at", "created_by", "created_at", "updated_at"]
+        read_only_fields = ["id", "order_number", "completed_at", "created_by", "created_at", "updated_at", "customer_user", "source", "catalog_item", "price_tier", "quote",
+                            "delivery_distance_km", "commission_percent", "commission_amount", "workshop_amount", "rejection_reason", "responded_at"]
         extra_kwargs = {"payment_status": {"required": False}, "status": {"required": False}}
 
     def get_outstanding_amount(self, obj):

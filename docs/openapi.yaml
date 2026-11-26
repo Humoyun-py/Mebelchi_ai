@@ -300,6 +300,224 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/admin-api/finance/commission/:
+    get:
+      operationId: admin_api_finance_commission_retrieve
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    patch:
+      operationId: admin_api_finance_commission_partial_update
+      description: 'Body `{"commission_percent": 20}`. New orders use the new rate;
+        orders already placed keep the rate they were placed with.'
+      tags:
+      - admin-api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/admin-api/finance/payments/:
+    get:
+      operationId: admin_api_finance_payments_list
+      description: 'Administrators: every payment, manual recording, confirmation
+        and rejection.'
+      parameters:
+      - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - payment
+          - refund
+        description: |-
+          * `payment` - Payment
+          * `refund` - Refund
+      - in: query
+        name: order
+        schema:
+          type: integer
+      - in: query
+        name: order__workshop
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - confirmed
+          - pending
+          - rejected
+        description: |-
+          * `pending` - Waiting for confirmation
+          * `confirmed` - Confirmed
+          * `rejected` - Rejected
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPaymentList'
+          description: ''
+    post:
+      operationId: admin_api_finance_payments_create
+      description: 'Administrators: every payment, manual recording, confirmation
+        and rejection.'
+      tags:
+      - admin-api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPaymentInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminPaymentInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminPaymentInput'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+          description: ''
+  /api/v1/admin-api/finance/payments/{id}/confirm/:
+    post:
+      operationId: admin_api_finance_payments_confirm_create
+      description: 'Administrators: every payment, manual recording, confirmation
+        and rejection.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this order payment.
+        required: true
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+          description: ''
+  /api/v1/admin-api/finance/payments/{id}/reject/:
+    post:
+      operationId: admin_api_finance_payments_reject_create
+      description: 'Administrators: every payment, manual recording, confirmation
+        and rejection.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this order payment.
+        required: true
+      tags:
+      - admin-api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+          description: ''
+  /api/v1/admin-api/finance/summary/:
+    get:
+      operationId: admin_api_finance_summary_retrieve
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/admin-api/logs/:
     get:
       operationId: admin_api_logs_list
@@ -1056,6 +1274,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminWorkshop'
+          description: ''
+  /api/v1/ai/status/:
+    get:
+      operationId: ai_status_retrieve
+      description: Whether an AI provider is configured. Clients hide AI-only features
+        when `enabled` is false.
+      tags:
+      - ai
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
           description: ''
   /api/v1/analytics/features/:
     get:
@@ -2515,14 +2750,36 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/v1/furniture/images/{id}/file/:
+    get:
+      operationId: furniture_images_file_retrieve
+      description: Public but bound to one image by a signature, so <img> and mobile
+        image widgets work without headers.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - furniture
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/v1/furniture/templates/:
     get:
       operationId: furniture_templates_list
+      description: |-
+        Furniture catalogue. Everybody signed in sees approved items; a workshop owner also sees (and manages) their own items in any state.
+        New items from workshops start `pending` and become visible to others once an administrator approves them.
       parameters:
-      - in: query
-        name: category
-        schema:
-          type: string
       - name: ordering
         required: false
         in: query
@@ -2548,18 +2805,284 @@ paths:
                 items:
                   $ref: '#/components/schemas/Template'
           description: ''
+    post:
+      operationId: furniture_templates_create
+      description: |-
+        Furniture catalogue. Everybody signed in sees approved items; a workshop owner also sees (and manages) their own items in any state.
+        New items from workshops start `pending` and become visible to others once an administrator approves them.
+      tags:
+      - furniture
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Template'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Template'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Template'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+          description: ''
   /api/v1/furniture/templates/{id}/:
     get:
       operationId: furniture_templates_retrieve
+      description: |-
+        Furniture catalogue. Everybody signed in sees approved items; a workshop owner also sees (and manages) their own items in any state.
+        New items from workshops start `pending` and become visible to others once an administrator approves them.
       parameters:
       - in: path
         name: id
         schema:
-          type: integer
-        description: A unique integer value identifying this furniture template.
+          type: string
         required: true
       tags:
       - furniture
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+          description: ''
+    put:
+      operationId: furniture_templates_update
+      description: |-
+        Furniture catalogue. Everybody signed in sees approved items; a workshop owner also sees (and manages) their own items in any state.
+        New items from workshops start `pending` and become visible to others once an administrator approves them.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - furniture
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Template'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Template'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Template'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+          description: ''
+    patch:
+      operationId: furniture_templates_partial_update
+      description: |-
+        Furniture catalogue. Everybody signed in sees approved items; a workshop owner also sees (and manages) their own items in any state.
+        New items from workshops start `pending` and become visible to others once an administrator approves them.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - furniture
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTemplate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTemplate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTemplate'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+          description: ''
+    delete:
+      operationId: furniture_templates_destroy
+      description: |-
+        Furniture catalogue. Everybody signed in sees approved items; a workshop owner also sees (and manages) their own items in any state.
+        New items from workshops start `pending` and become visible to others once an administrator approves them.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - furniture
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/furniture/templates/{id}/export/{fmt}/:
+    get:
+      operationId: furniture_templates_export_retrieve
+      description: The uploaded model (GLB), or a model generated from the item's
+        sizes. Parametric models are plain boxes, not photo-real.
+      parameters:
+      - in: path
+        name: fmt
+        schema:
+          type: string
+          pattern: ^glb|gltf$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - furniture
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/furniture/templates/{id}/images/:
+    post:
+      operationId: furniture_templates_images_create
+      description: POST `view` + `image` stores (or replaces) one side; DELETE `?view=front`
+        removes it.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - furniture
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Upload'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+          description: ''
+    delete:
+      operationId: furniture_templates_images_destroy
+      description: POST `view` + `image` stores (or replaces) one side; DELETE `?view=front`
+        removes it.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - furniture
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/furniture/templates/{id}/model/:
+    post:
+      operationId: furniture_templates_model_create
+      description: POST a `.glb` as `file` (validated; changes send an approved item
+        back to review); DELETE returns to the generated model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - furniture
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Upload'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+          description: ''
+    delete:
+      operationId: furniture_templates_model_destroy
+      description: POST a `.glb` as `file` (validated; changes send an approved item
+        back to review); DELETE returns to the generated model.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - furniture
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/furniture/templates/{id}/review/:
+    post:
+      operationId: furniture_templates_review_create
+      description: Administrators approve or reject a workshop's item (a rejection
+        needs a reason).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - furniture
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Review'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Review'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Review'
+        required: true
       security:
       - jwtAuth: []
       responses:
@@ -2841,6 +3364,288 @@ paths:
               additionalProperties: {}
       security:
       - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/marketplace/match/:
+    post:
+      operationId: marketplace_match_create
+      description: |-
+        Best workshops for a piece of furniture. Creates nothing and contacts nobody.
+
+        Body: `catalog_item` (id) or `furniture` {category, width, height, depth, thickness?, shelves?, doors?, drawers?}; optional `quantity`,
+        `customer_location` {latitude, longitude}, `budget`, `deadline_days`, `currency`, `limit` (1-10, default 3), `exclude_workshops`.
+        Response: `options` (ranked, each with price, tier, distance, rating, lead time, load, score breakdown, portfolio), `tiers`
+        {min, average, premium} over all quotes received, and `excluded` with the reason for every workshop that was left out.
+      tags:
+      - marketplace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/marketplace/orders/:
+    get:
+      operationId: marketplace_orders_list
+      description: The signed-in customer's marketplace orders. Placing one is what
+        sends it to the workshop.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - marketplace
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: marketplace_orders_create
+      description: |-
+        Body: the same furniture fields as `match/` plus `workshop` (one of the offered ids), optional `customer_name`, `customer_phone`,
+        `customer_address`, `notes`. The price is recomputed on the server; the order starts as `pending` and the workshop has 24 hours to answer.
+      tags:
+      - marketplace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/marketplace/orders/{id}/:
+    get:
+      operationId: marketplace_orders_retrieve
+      description: The signed-in customer's marketplace orders. Placing one is what
+        sends it to the workshop.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - marketplace
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/marketplace/orders/{id}/alternatives/:
+    get:
+      operationId: marketplace_orders_alternatives_retrieve
+      description: Other workshops for a rejected order (the ones that already refused
+        are never offered).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - marketplace
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/marketplace/orders/{id}/cancel/:
+    post:
+      operationId: marketplace_orders_cancel_create
+      description: The signed-in customer's marketplace orders. Placing one is what
+        sends it to the workshop.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - marketplace
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/marketplace/orders/{id}/payments/:
+    post:
+      operationId: marketplace_orders_payments_create
+      description: |-
+        Tell the platform you paid (amount, method, receipt number). It counts only after an administrator confirms it. Send an
+        `idempotency_key` so a retry never records the payment twice.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - marketplace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaymentInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaymentInput'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+          description: ''
+  /api/v1/marketplace/orders/{id}/reassign/:
+    post:
+      operationId: marketplace_orders_reassign_create
+      description: 'Body `{"workshop": id}`: sends a rejected order to another workshop
+        as a new pending order.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - marketplace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/marketplace/orders/{id}/review/:
+    post:
+      operationId: marketplace_orders_review_create
+      description: 'Body `{"stars": 1-5, "comment": ""}` once the order is completed;
+        one rating per order.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - marketplace
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -3381,15 +4186,23 @@ paths:
           - cancelled
           - confirmed
           - delivered
+          - delivery
           - in_production
           - new
+          - pending
+          - quality_check
           - ready
+          - rejected
         description: |-
           * `new` - New
-          * `confirmed` - Confirmed
+          * `pending` - Pending
+          * `confirmed` - Accepted
+          * `rejected` - Rejected
           * `in_production` - In production
+          * `quality_check` - Quality check
           * `ready` - Ready
-          * `delivered` - Delivered
+          * `delivery` - Delivery
+          * `delivered` - Completed
           * `cancelled` - Cancelled
       - in: query
         name: workshop
@@ -4067,6 +4880,52 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/v1/rooms/{id}/export/:
+    get:
+      operationId: rooms_export_retrieve
+      description: 'The design as a `.mebelchi` project file (readable on web and
+        mobile). Not copy protection: see docs/API.md.'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/rooms/{id}/export-glb/:
+    get:
+      operationId: rooms_export_glb_retrieve
+      description: The 3D room as a standard GLB for other viewers (boxes with colours,
+        no textures).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/v1/rooms/{id}/finish/:
     post:
       operationId: rooms_finish_create
@@ -4233,6 +5092,67 @@ paths:
         required: true
       tags:
       - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/rooms/{id}/settings/:
+    patch:
+      operationId: rooms_settings_partial_update
+      description: Wall/floor colour, `floor_material`, `light` {intensity, warm}
+        and `camera` {position, target, fov} of the 3D room.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/rooms/import/:
+    post:
+      operationId: rooms_import_create
+      description: |-
+        Creates a new room design from a `.mebelchi` project file (multipart field `file`, or the document itself as JSON).
+        400 names the place in the file that is wrong; `unknown_models` lists catalogue ids this server does not have.
+      tags:
+      - rooms
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
       security:
       - jwtAuth: []
       responses:
@@ -5627,6 +6547,43 @@ components:
       - plan_name
       - reference
       - status
+    AdminPaymentInput:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        method:
+          allOf:
+          - $ref: '#/components/schemas/MethodEnum'
+          default: other
+        reference:
+          type: string
+          default: ''
+          maxLength: 80
+        note:
+          type: string
+          default: ''
+          maxLength: 255
+        idempotency_key:
+          type: string
+          nullable: true
+          maxLength: 64
+        order:
+          type: integer
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind9efEnum'
+          default: payment
+        confirm:
+          type: boolean
+          default: true
+          description: Record and confirm in one step (the money was received by the
+            administrator)
+      required:
+      - amount
+      - order
     AdminPaymentStatusEnum:
       enum:
       - pending
@@ -6300,7 +7257,7 @@ components:
           type: string
           maxLength: 160
         source:
-          $ref: '#/components/schemas/SourceEnum'
+          $ref: '#/components/schemas/GalleryImageSourceEnum'
         favorite:
           type: boolean
         project:
@@ -6334,6 +7291,20 @@ components:
       - size_bytes
       - url
       - width
+    GalleryImageSourceEnum:
+      enum:
+      - upload
+      - room
+      - sketch
+      - drawing
+      - render
+      type: string
+      description: |-
+        * `upload` - Upload
+        * `room` - Room photo
+        * `sketch` - Hand sketch
+        * `drawing` - Drawing
+        * `render` - Render
     HandleStyleEnum:
       enum:
       - bar
@@ -6344,6 +7315,17 @@ components:
         * `bar` - bar
         * `knob` - knob
         * `none` - none
+    Image:
+      type: object
+      properties:
+        view:
+          $ref: '#/components/schemas/ViewEnum'
+        url:
+          type: string
+          readOnly: true
+      required:
+      - url
+      - view
     Invitation:
       type: object
       properties:
@@ -6377,6 +7359,14 @@ components:
           format: email
       required:
       - email
+    Kind9efEnum:
+      enum:
+      - payment
+      - refund
+      type: string
+      description: |-
+        * `payment` - Payment
+        * `refund` - Refund
     KindFb4Enum:
       enum:
       - individual
@@ -6611,6 +7601,18 @@ components:
       description: |-
         * `user` - User
         * `assistant` - Assistant
+    MethodEnum:
+      enum:
+      - cash
+      - bank_transfer
+      - card
+      - other
+      type: string
+      description: |-
+        * `cash` - Cash
+        * `bank_transfer` - Bank transfer
+        * `card` - Card (paid outside the platform)
+        * `other` - Other
     Notification:
       type: object
       properties:
@@ -6700,7 +7702,7 @@ components:
         payment_status:
           $ref: '#/components/schemas/PaymentStatusEnum'
         status:
-          $ref: '#/components/schemas/Status2adEnum'
+          $ref: '#/components/schemas/Status818Enum'
         status_note:
           type: string
           writeOnly: true
@@ -6727,6 +7729,48 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/Source1fcEnum'
+          readOnly: true
+        catalog_item:
+          type: integer
+          readOnly: true
+          nullable: true
+        price_tier:
+          type: string
+          readOnly: true
+        quote:
+          readOnly: true
+        delivery_distance_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,1})?$
+          readOnly: true
+          nullable: true
+        commission_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          readOnly: true
+        commission_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        workshop_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        rejection_reason:
+          type: string
+          readOnly: true
+        responded_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_by:
           type: integer
           readOnly: true
@@ -6742,17 +7786,27 @@ components:
       required:
       - allowed_next_statuses
       - assigned_employee_detail
+      - catalog_item
+      - commission_amount
+      - commission_percent
       - completed_at
       - created_at
       - created_by
       - customer_name
       - customer_user
+      - delivery_distance_km
       - id
       - order_number
       - outstanding_amount
+      - price_tier
       - project
+      - quote
+      - rejection_reason
+      - responded_at
+      - source
       - title
       - updated_at
+      - workshop_amount
     OrderDetail:
       type: object
       description: '`owned_workshop_ids` is computed once per request by the view
@@ -6812,7 +7866,7 @@ components:
         payment_status:
           $ref: '#/components/schemas/PaymentStatusEnum'
         status:
-          $ref: '#/components/schemas/Status2adEnum'
+          $ref: '#/components/schemas/Status818Enum'
         status_note:
           type: string
           writeOnly: true
@@ -6835,6 +7889,48 @@ components:
           format: date
           nullable: true
         completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/Source1fcEnum'
+          readOnly: true
+        catalog_item:
+          type: integer
+          readOnly: true
+          nullable: true
+        price_tier:
+          type: string
+          readOnly: true
+        quote:
+          readOnly: true
+        delivery_distance_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,1})?$
+          readOnly: true
+          nullable: true
+        commission_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          readOnly: true
+        commission_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        workshop_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        rejection_reason:
+          type: string
+          readOnly: true
+        responded_at:
           type: string
           format: date-time
           readOnly: true
@@ -6862,19 +7958,29 @@ components:
       required:
       - allowed_next_statuses
       - assigned_employee_detail
+      - catalog_item
+      - commission_amount
+      - commission_percent
       - completed_at
       - created_at
       - created_by
       - customer_name
       - customer_user
+      - delivery_distance_km
       - id
       - order_number
       - outstanding_amount
+      - price_tier
       - project
+      - quote
+      - rejection_reason
+      - responded_at
+      - source
       - status_history
       - tasks_count
       - title
       - updated_at
+      - workshop_amount
     OrderStatusChange:
       type: object
       properties:
@@ -7270,6 +8376,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Order'
+    PaginatedPaymentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payment'
     PaginatedProjectList:
       type: object
       required:
@@ -7597,7 +8726,7 @@ components:
           type: string
           maxLength: 160
         source:
-          $ref: '#/components/schemas/SourceEnum'
+          $ref: '#/components/schemas/GalleryImageSourceEnum'
         favorite:
           type: boolean
         project:
@@ -7751,7 +8880,7 @@ components:
         payment_status:
           $ref: '#/components/schemas/PaymentStatusEnum'
         status:
-          $ref: '#/components/schemas/Status2adEnum'
+          $ref: '#/components/schemas/Status818Enum'
         status_note:
           type: string
           writeOnly: true
@@ -7774,6 +8903,48 @@ components:
           format: date
           nullable: true
         completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/Source1fcEnum'
+          readOnly: true
+        catalog_item:
+          type: integer
+          readOnly: true
+          nullable: true
+        price_tier:
+          type: string
+          readOnly: true
+        quote:
+          readOnly: true
+        delivery_distance_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,1})?$
+          readOnly: true
+          nullable: true
+        commission_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          readOnly: true
+        commission_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        workshop_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        rejection_reason:
+          type: string
+          readOnly: true
+        responded_at:
           type: string
           format: date-time
           readOnly: true
@@ -7915,6 +9086,112 @@ components:
           type: string
           format: date-time
           readOnly: true
+    PatchedTemplate:
+      type: object
+      description: 'Read: the catalogue entry. Write: either `defaults` or the loose
+        size fields (`width`, `height`, `depth`, ...).'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        category:
+          type: string
+          maxLength: 24
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 255
+        defaults: {}
+        width:
+          type: number
+          format: double
+          writeOnly: true
+        height:
+          type: number
+          format: double
+          writeOnly: true
+        depth:
+          type: number
+          format: double
+          writeOnly: true
+        thickness:
+          type: number
+          format: double
+          writeOnly: true
+        shelves:
+          type: integer
+          writeOnly: true
+        doors:
+          type: integer
+          writeOnly: true
+        drawers:
+          type: integer
+          writeOnly: true
+        workshop:
+          type: integer
+          nullable: true
+        workshop_name:
+          type: string
+          readOnly: true
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        currency:
+          type: string
+          maxLength: 3
+        material:
+          type: string
+          maxLength: 60
+        color:
+          type: string
+          maxLength: 7
+        manufacturer:
+          type: string
+          maxLength: 120
+        lead_time_days:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        is_available:
+          type: boolean
+        status:
+          allOf:
+          - $ref: '#/components/schemas/TemplateStatusEnum'
+          readOnly: true
+        review_note:
+          type: string
+          readOnly: true
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+          readOnly: true
+        has_model:
+          type: boolean
+          readOnly: true
+        model_source:
+          type: string
+          readOnly: true
+        can_edit:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
     PatchedUser:
       type: object
       properties:
@@ -8042,6 +9319,58 @@ components:
         my_role:
           type: string
           readOnly: true
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        delivery_radius_km:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+          description: Empty = no limit stated
+        categories:
+          description: Furniture categories this workshop makes; empty = all
+        working_hours:
+          type: string
+          maxLength: 120
+        max_active_orders:
+          type: integer
+          maximum: 32767
+          minimum: 1
+          description: 'Capacity: orders in progress at once'
+        is_accepting_orders:
+          type: boolean
+        lead_time_days:
+          type: integer
+          maximum: 32767
+          minimum: 1
+        price_list:
+          description: Board / hardware / labour prices in the calculation engine's
+            PriceList format
+        transport_per_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          nullable: true
+        assembly_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        rating_avg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+          readOnly: true
+        rating_count:
+          type: integer
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -8050,6 +9379,95 @@ components:
           type: string
           format: date-time
           readOnly: true
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order:
+          type: integer
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/Kind9efEnum'
+          readOnly: true
+          default: payment
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentStatusEnum'
+          readOnly: true
+          default: pending
+        method:
+          allOf:
+          - $ref: '#/components/schemas/MethodEnum'
+          readOnly: true
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        reference:
+          type: string
+          readOnly: true
+          default: ''
+          description: Receipt / transfer number as written by the payer
+        note:
+          type: string
+          readOnly: true
+        reject_reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        decided_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - amount
+      - created_at
+      - decided_at
+      - id
+      - kind
+      - method
+      - note
+      - order
+      - order_number
+      - reference
+      - reject_reason
+      - status
+    PaymentInput:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        method:
+          allOf:
+          - $ref: '#/components/schemas/MethodEnum'
+          default: other
+        reference:
+          type: string
+          default: ''
+          maxLength: 80
+        note:
+          type: string
+          default: ''
+          maxLength: 255
+        idempotency_key:
+          type: string
+          nullable: true
+          maxLength: 64
+      required:
+      - amount
     PaymentStatusEnum:
       enum:
       - unpaid
@@ -8255,12 +9673,31 @@ components:
       - first_name
       - last_name
       - password
+    Review:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/ReviewStatusEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - status
     ReviewNote:
       type: object
       properties:
         note:
           type: string
           maxLength: 500
+    ReviewStatusEnum:
+      enum:
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `approved` - approved
+        * `rejected` - rejected
     Role:
       type: object
       properties:
@@ -8294,20 +9731,14 @@ components:
       description: |-
         * `maker` - maker
         * `homeowner` - homeowner
-    SourceEnum:
+    Source1fcEnum:
       enum:
-      - upload
-      - room
-      - sketch
-      - drawing
-      - render
+      - manual
+      - marketplace
       type: string
       description: |-
-        * `upload` - Upload
-        * `room` - Room photo
-        * `sketch` - Hand sketch
-        * `drawing` - Drawing
-        * `render` - Render
+        * `manual` - Entered by the workshop
+        * `marketplace` - Marketplace
     Status244Enum:
       enum:
       - active
@@ -8316,22 +9747,6 @@ components:
       description: |-
         * `active` - Active
         * `archived` - Archived
-    Status2adEnum:
-      enum:
-      - new
-      - confirmed
-      - in_production
-      - ready
-      - delivered
-      - cancelled
-      type: string
-      description: |-
-        * `new` - New
-        * `confirmed` - Confirmed
-        * `in_production` - In production
-        * `ready` - Ready
-        * `delivered` - Delivered
-        * `cancelled` - Cancelled
     Status3b9Enum:
       enum:
       - pending
@@ -8346,6 +9761,30 @@ components:
         * `inactive` - Inactive
         * `suspended` - Suspended
         * `rejected` - Rejected
+    Status818Enum:
+      enum:
+      - new
+      - pending
+      - confirmed
+      - rejected
+      - in_production
+      - quality_check
+      - ready
+      - delivery
+      - delivered
+      - cancelled
+      type: string
+      description: |-
+        * `new` - New
+        * `pending` - Pending
+        * `confirmed` - Accepted
+        * `rejected` - Rejected
+        * `in_production` - In production
+        * `quality_check` - Quality check
+        * `ready` - Ready
+        * `delivery` - Delivery
+        * `delivered` - Completed
+        * `cancelled` - Cancelled
     Status909Enum:
       enum:
       - pending
@@ -8559,13 +9998,15 @@ components:
       - to_status
     Template:
       type: object
+      description: 'Read: the catalogue entry. Write: either `defaults` or the loose
+        size fields (`width`, `height`, `depth`, ...).'
       properties:
         id:
           type: integer
           readOnly: true
         slug:
           type: string
-          maxLength: 50
+          readOnly: true
           pattern: ^[-a-zA-Z0-9_]+$
         category:
           type: string
@@ -8577,11 +10018,114 @@ components:
           type: string
           maxLength: 255
         defaults: {}
+        width:
+          type: number
+          format: double
+          writeOnly: true
+        height:
+          type: number
+          format: double
+          writeOnly: true
+        depth:
+          type: number
+          format: double
+          writeOnly: true
+        thickness:
+          type: number
+          format: double
+          writeOnly: true
+        shelves:
+          type: integer
+          writeOnly: true
+        doors:
+          type: integer
+          writeOnly: true
+        drawers:
+          type: integer
+          writeOnly: true
+        workshop:
+          type: integer
+          nullable: true
+        workshop_name:
+          type: string
+          readOnly: true
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        currency:
+          type: string
+          maxLength: 3
+        material:
+          type: string
+          maxLength: 60
+        color:
+          type: string
+          maxLength: 7
+        manufacturer:
+          type: string
+          maxLength: 120
+        lead_time_days:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        is_available:
+          type: boolean
+        status:
+          allOf:
+          - $ref: '#/components/schemas/TemplateStatusEnum'
+          readOnly: true
+        review_note:
+          type: string
+          readOnly: true
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+          readOnly: true
+        has_model:
+          type: boolean
+          readOnly: true
+        model_source:
+          type: string
+          readOnly: true
+        can_edit:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
       required:
+      - can_edit
       - category
+      - created_at
+      - has_model
       - id
+      - images
+      - model_source
       - name
+      - review_note
       - slug
+      - status
+      - updated_at
+      - workshop_name
+    TemplateStatusEnum:
+      enum:
+      - pending
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `pending` - Pending approval
+        * `approved` - Approved
+        * `rejected` - Rejected
     ThemeEnum:
       enum:
       - dark
@@ -8601,6 +10145,19 @@ components:
       required:
       - access
       - refresh
+    Upload:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+          nullable: true
+        view:
+          $ref: '#/components/schemas/ViewEnum'
+        image:
+          type: string
+          format: uri
+          nullable: true
     User:
       type: object
       properties:
@@ -8710,6 +10267,22 @@ components:
         * `document` - Document
         * `model` - 3D model
         * `other` - Other
+    ViewEnum:
+      enum:
+      - front
+      - left
+      - right
+      - back
+      - top
+      - bottom
+      type: string
+      description: |-
+        * `front` - Front
+        * `left` - Left
+        * `right` - Right
+        * `back` - Back
+        * `top` - Top
+        * `bottom` - Bottom
     Workshop:
       type: object
       description: '`owned_workshop_ids` is computed once per request by the view
@@ -8759,6 +10332,58 @@ components:
         my_role:
           type: string
           readOnly: true
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        delivery_radius_km:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+          description: Empty = no limit stated
+        categories:
+          description: Furniture categories this workshop makes; empty = all
+        working_hours:
+          type: string
+          maxLength: 120
+        max_active_orders:
+          type: integer
+          maximum: 32767
+          minimum: 1
+          description: 'Capacity: orders in progress at once'
+        is_accepting_orders:
+          type: boolean
+        lead_time_days:
+          type: integer
+          maximum: 32767
+          minimum: 1
+        price_list:
+          description: Board / hardware / labour prices in the calculation engine's
+            PriceList format
+        transport_per_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+          nullable: true
+        assembly_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        rating_avg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+          readOnly: true
+        rating_count:
+          type: integer
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -8774,6 +10399,8 @@ components:
       - my_role
       - name
       - owner
+      - rating_avg
+      - rating_count
       - review_note
       - slug
       - updated_at

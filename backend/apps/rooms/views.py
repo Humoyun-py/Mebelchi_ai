@@ -4,13 +4,15 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound as DRFNotFound
 from rest_framework.exceptions import ValidationError
+from django.http import HttpResponse
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.conversations import flow
 from apps.geometry import room as geo
 
-from . import legacy, services
+from . import legacy, mebelchi, services
 from .models import RoomFlow
 
 
@@ -31,7 +33,7 @@ def guarded(fn):
             raise _fields(e.errors)
         except flow.FlowError as e:
             return Response({"error": {"status": 409, "detail": str(e)}}, status=status.HTTP_409_CONFLICT)
-        except (geo.RoomError, legacy.LegacyError) as e:
+        except (geo.RoomError, legacy.LegacyError, mebelchi.MebelchiError) as e:
             raise _fields(e.errors)
     wrapper.__name__ = fn.__name__
     wrapper.__doc__ = fn.__doc__
@@ -89,6 +91,46 @@ class RoomFlowViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             raise ValidationError({"design": ["send {\"design\": <design id>}"]})
         f, created = services.import_legacy(request.user, d)
         return Response(payload(f, imported=True), status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @extend_schema(request={"multipart/form-data": OpenApiTypes.OBJECT}, responses=OpenApiTypes.OBJECT)
+    @action(detail=False, methods=["post"], url_path="import", parser_classes=[MultiPartParser, FormParser, JSONParser])
+    @guarded
+    def import_project(self, request):
+        """Creates a new room design from a `.mebelchi` project file (multipart field `file`, or the document itself as JSON).
+        400 names the place in the file that is wrong; `unknown_models` lists catalogue ids this server does not have."""
+        up = request.FILES.get("file") if hasattr(request, "FILES") else None
+        raw = up.read() if up is not None else request.data
+        if up is None and not (isinstance(raw, dict) and raw):
+            raise ValidationError({"file": ["send the .mebelchi file as `file`"]})
+        f, unknown = services.import_project(request.user, raw)
+        return Response(payload(f, unknown_models=unknown), status=status.HTTP_201_CREATED)
+
+    @extend_schema(responses=OpenApiTypes.BINARY)
+    @action(detail=True, methods=["get"], url_path="export")
+    @guarded
+    def export_project(self, request, pk=None):
+        """The design as a `.mebelchi` project file (readable on web and mobile). Not copy protection: see docs/API.md."""
+        from apps.rooms import mebelchi
+        name, doc = services.export_project(request.user, int(pk))
+        safe = "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in name).strip() or "room"
+        return HttpResponse(mebelchi.dumps(doc), content_type="application/vnd.mebelchi+json",
+                            headers={"Content-Disposition": f'attachment; filename="{safe}{mebelchi.EXTENSION}"'})
+
+    @extend_schema(responses=OpenApiTypes.BINARY)
+    @action(detail=True, methods=["get"], url_path="export-glb")
+    @guarded
+    def export_glb(self, request, pk=None):
+        """The 3D room as a standard GLB for other viewers (boxes with colours, no textures)."""
+        name, data = services.export_glb(request.user, int(pk))
+        return HttpResponse(data, content_type="model/gltf-binary", headers={"Content-Disposition": 'attachment; filename="room.glb"'})
+
+    @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
+    @action(detail=True, methods=["patch"], url_path="settings")
+    @guarded
+    def room_settings(self, request, pk=None):
+        """Wall/floor colour, `floor_material`, `light` {intensity, warm} and `camera` {position, target, fov} of the 3D room."""
+        self._flow(request, pk)
+        return Response(payload(services.update_settings(request.user, int(pk), request.data)))
 
     @extend_schema(responses=OpenApiTypes.OBJECT)
     def retrieve(self, request, pk=None):

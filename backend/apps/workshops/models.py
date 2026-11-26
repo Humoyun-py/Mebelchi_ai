@@ -11,6 +11,7 @@ Customers are stored on the order for now (name, contact, optional platform acco
 `Customer` table from these columns with a data migration.
 """
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import F, Q
 
@@ -46,12 +47,31 @@ class Workshop(models.Model):
     review_note = models.CharField(max_length=500, blank=True, default="")
     # Last issued order sequence number. Incremented with a single atomic UPDATE (see services.next_order_number).
     order_counter = models.PositiveIntegerField(default=0, editable=False)
+    # --- marketplace profile (entered by the owner by hand; nothing is looked up or guessed)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, validators=[MinValueValidator(-90), MaxValueValidator(90)])
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, validators=[MinValueValidator(-180), MaxValueValidator(180)])
+    delivery_radius_km = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Empty = no limit stated")
+    categories = models.JSONField(default=list, blank=True, help_text="Furniture categories this workshop makes; empty = all")
+    working_hours = models.CharField(max_length=120, blank=True)
+    max_active_orders = models.PositiveSmallIntegerField(default=10, validators=[MinValueValidator(1)], help_text="Capacity: orders in progress at once")
+    is_accepting_orders = models.BooleanField(default=True)
+    lead_time_days = models.PositiveSmallIntegerField(default=14, validators=[MinValueValidator(1)])
+    price_list = models.JSONField(default=dict, blank=True, help_text="Board / hardware / labour prices in the calculation engine's PriceList format")
+    transport_per_km = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
+    assembly_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    rating_avg = models.DecimalField(max_digits=3, decimal_places=2, default=0, editable=False)
+    rating_count = models.PositiveIntegerField(default=0, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["name", "id"]
         indexes = [models.Index(fields=["owner"]), models.Index(fields=["status"])]
+        constraints = [
+            models.CheckConstraint(condition=Q(latitude__isnull=True) | (Q(latitude__gte=-90) & Q(latitude__lte=90)), name="workshop_latitude_range"),
+            models.CheckConstraint(condition=Q(longitude__isnull=True) | (Q(longitude__gte=-180) & Q(longitude__lte=180)), name="workshop_longitude_range"),
+            models.CheckConstraint(condition=(Q(latitude__isnull=True) & Q(longitude__isnull=True)) | (Q(latitude__isnull=False) & Q(longitude__isnull=False)), name="workshop_coordinates_together"),
+        ]
 
     def __str__(self):
         return self.name
@@ -99,12 +119,22 @@ class WorkshopMember(models.Model):
 
 class Order(models.Model):
     class Status(models.TextChoices):
+        # `new` = created by the workshop itself; `pending` = sent through the marketplace, waiting for the workshop's answer.
+        # Naming in the product spec: Accepted = `confirmed`, Completed = `delivered` (the value is kept so existing data and clients keep working).
         NEW = "new", "New"
-        CONFIRMED = "confirmed", "Confirmed"
+        PENDING = "pending", "Pending"
+        CONFIRMED = "confirmed", "Accepted"
+        REJECTED = "rejected", "Rejected"
         IN_PRODUCTION = "in_production", "In production"
+        QUALITY_CHECK = "quality_check", "Quality check"
         READY = "ready", "Ready"
-        DELIVERED = "delivered", "Delivered"
+        DELIVERY = "delivery", "Delivery"
+        DELIVERED = "delivered", "Completed"
         CANCELLED = "cancelled", "Cancelled"
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Entered by the workshop"
+        MARKETPLACE = "marketplace", "Marketplace"
 
     class PaymentStatus(models.TextChoices):
         UNPAID = "unpaid", "Unpaid"
@@ -132,12 +162,30 @@ class Order(models.Model):
     deadline = models.DateField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    # --- marketplace / money snapshot (fixed when the order is placed; a later change of the commission rate never rewrites it)
+    source = models.CharField(max_length=12, choices=Source.choices, default=Source.MANUAL)
+    catalog_item = models.ForeignKey("furniture.FurnitureTemplate", null=True, blank=True, on_delete=models.SET_NULL, related_name="orders")
+    rerouted_from = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="rerouted_to")
+    price_tier = models.CharField(max_length=8, blank=True)
+    quote = models.JSONField(default=dict, blank=True)
+    customer_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    customer_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    delivery_distance_km = models.DecimalField(max_digits=7, decimal_places=1, null=True, blank=True)
+    commission_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    commission_amount = models.DecimalField(default=0, **MONEY)
+    workshop_amount = models.DecimalField(default=0, **MONEY)
+    rejection_reason = models.CharField(max_length=255, blank=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+    reminders_sent = models.PositiveSmallIntegerField(default=0)
+    last_reminder_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at", "-id"]
         constraints = [
+            models.CheckConstraint(condition=Q(commission_amount__gte=0) & Q(workshop_amount__gte=0), name="order_split_non_negative"),
+            models.CheckConstraint(condition=Q(commission_percent__gte=0) & Q(commission_percent__lte=100), name="order_commission_percent_range"),
             models.CheckConstraint(condition=Q(total_price__gte=0), name="order_total_non_negative"),
             models.CheckConstraint(condition=Q(paid_amount__gte=0), name="order_paid_non_negative"),
             models.CheckConstraint(condition=Q(paid_amount__lte=F("total_price")), name="order_paid_not_above_total"),
@@ -150,10 +198,28 @@ class Order(models.Model):
             models.Index(fields=["workshop", "deadline"], name="order_ws_deadline_idx"),
             models.Index(fields=["workshop", "payment_status"], name="order_ws_payment_idx"),
             models.Index(fields=["assigned_employee"], name="order_assignee_idx"),
+            models.Index(fields=["status", "source", "last_reminder_at"], name="order_reminder_idx"),
+            models.Index(fields=["customer_user", "-created_at"], name="order_customer_idx"),
         ]
 
     def __str__(self):
         return self.order_number
+
+
+class WorkshopReview(models.Model):
+    """A customer's rating of a finished order. One per order; the workshop's average is recomputed from these rows."""
+
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="review")
+    workshop = models.ForeignKey(Workshop, on_delete=models.CASCADE, related_name="reviews")
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    stars = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    comment = models.CharField(max_length=1000, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [models.CheckConstraint(condition=Q(stars__gte=1) & Q(stars__lte=5), name="review_stars_range")]
+        indexes = [models.Index(fields=["workshop", "-created_at"], name="review_ws_idx")]
 
 
 class OrderStatusChange(models.Model):
