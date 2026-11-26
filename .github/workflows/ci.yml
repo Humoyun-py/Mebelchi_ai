@@ -31,6 +31,8 @@ jobs:
       POSTGRES_PASSWORD: ci-only-password
       POSTGRES_HOST: localhost
       DATABASE_FALLBACK_ENABLED: "false"
+      # manage.py needs a key outside `test` mode; this one exists only inside CI
+      DJANGO_SECRET_KEY: ci-only-secret-key-that-is-long-enough-0123456789-abcdefghijklmnopqrstuvwxyz
     defaults:
       run:
         working-directory: backend
@@ -51,7 +53,6 @@ jobs:
       - name: Deploy check (production-like settings; fails on errors, prints warnings)
         env:
           DJANGO_DEBUG: "false"
-          DJANGO_SECRET_KEY: ci-only-secret-key-that-is-long-enough-0123456789-abcdefghijklmnopqrstuvwxyz
           DJANGO_ALLOWED_HOSTS: example.com
         run: python manage.py check --deploy
 
@@ -128,6 +129,8 @@ jobs:
       POSTGRES_PASSWORD: ci-only-password
       POSTGRES_HOST: localhost
       DATABASE_FALLBACK_ENABLED: "false"
+      # manage.py needs a key outside `test` mode; this one exists only inside CI
+      DJANGO_SECRET_KEY: ci-only-secret-key-that-is-long-enough-0123456789-abcdefghijklmnopqrstuvwxyz
     steps:
       - uses: actions/checkout@v4
       - name: PostgreSQL 16 client tools (pg_dump must not be older than the server)
