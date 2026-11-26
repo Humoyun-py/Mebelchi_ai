@@ -17,8 +17,12 @@ class AdminWorkshopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Workshop
-        fields = ["id", "name", "kind", "city", "slug", "status", "owner", "owner_email", "member_count", "order_count", "created_at", "updated_at"]
+        fields = ["id", "name", "kind", "city", "slug", "status", "review_note", "owner", "owner_email", "member_count", "order_count", "created_at", "updated_at"]
         read_only_fields = fields
+
+
+class ReviewNoteSerializer(serializers.Serializer):
+    note = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
 
 class WorkshopAdminViewSet(viewsets.ReadOnlyModelViewSet):
@@ -37,16 +41,24 @@ class WorkshopAdminViewSet(viewsets.ReadOnlyModelViewSet):
                 .order_by("-created_at"))
 
     def _review(self, request, target: str):
-        ws = services.review_workshop(self.get_object(), request.user, target)
+        note = ReviewNoteSerializer(data=request.data)
+        note.is_valid(raise_exception=True)
+        ws = services.review_workshop(self.get_object(), request.user, target, note.validated_data.get("note", ""))
         return Response(self.get_serializer(self.get_queryset().get(pk=ws.pk)).data)
 
-    @extend_schema(request=None, responses=AdminWorkshopSerializer)
+    @extend_schema(request=ReviewNoteSerializer, responses=AdminWorkshopSerializer)
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         """pending -> active (also re-activates a suspended or inactive workshop)."""
         return self._review(request, Workshop.Status.ACTIVE)
 
-    @extend_schema(request=None, responses=AdminWorkshopSerializer)
+    @extend_schema(request=ReviewNoteSerializer, responses=AdminWorkshopSerializer)
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        """pending -> rejected. A note explaining the decision is required; the owner is notified. The application can be approved later."""
+        return self._review(request, Workshop.Status.REJECTED)
+
+    @extend_schema(request=ReviewNoteSerializer, responses=AdminWorkshopSerializer)
     @action(detail=True, methods=["post"])
     def suspend(self, request, pk=None):
         return self._review(request, Workshop.Status.SUSPENDED)

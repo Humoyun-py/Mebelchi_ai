@@ -56,9 +56,9 @@ class WorkshopSerializer(OwnedIdsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Workshop
-        fields = ["id", "name", "kind", "city", "slug", "description", "owner", "phone", "email", "address", "logo_url", "status", "my_role",
+        fields = ["id", "name", "kind", "city", "slug", "description", "owner", "phone", "email", "address", "logo_url", "status", "review_note", "my_role",
                   "created_at", "updated_at"]
-        read_only_fields = ["id", "slug", "created_at", "updated_at"]
+        read_only_fields = ["id", "slug", "review_note", "created_at", "updated_at"]
 
     def get_owner(self, obj):
         return _person(obj.owner)

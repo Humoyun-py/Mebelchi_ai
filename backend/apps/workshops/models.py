@@ -29,6 +29,7 @@ class Workshop(models.Model):
         ACTIVE = "active", "Active"                 # approved and operating
         INACTIVE = "inactive", "Inactive"           # paused by its owner (read-only)
         SUSPENDED = "suspended", "Suspended"        # frozen by a platform administrator
+        REJECTED = "rejected", "Rejected"           # an administrator declined the application (reason in review_note); read-only
 
     name = models.CharField(max_length=120)
     kind = models.CharField(max_length=12, choices=Kind.choices, default=Kind.WORKSHOP)
@@ -41,6 +42,8 @@ class Workshop(models.Model):
     address = models.CharField(max_length=255, blank=True)
     logo = models.ImageField(upload_to="workshops/", blank=True, validators=[validate_image])
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    # Reason given by the platform administrator with the latest rejection / suspension; empty after an approval.
+    review_note = models.CharField(max_length=500, blank=True, default="")
     # Last issued order sequence number. Incremented with a single atomic UPDATE (see services.next_order_number).
     order_counter = models.PositiveIntegerField(default=0, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -106,6 +106,13 @@ from config.database import log_database_status, resolve_database  # noqa: E402
 
 _default_db, DATABASE_STATUS = resolve_database(os.environ, BASE_DIR)
 DATABASES = {"default": _default_db}
+# Optional read-only PostgreSQL role for audit archiving (deploy/sql/audit_roles.sql). Used only through `.using("audit_archiver")`;
+# there is no database router, so nothing else ever touches it.
+if env("AUDIT_ARCHIVER_USER") and _default_db["ENGINE"].endswith("postgresql"):
+    DATABASES["audit_archiver"] = {**_default_db, "USER": env("AUDIT_ARCHIVER_USER"), "PASSWORD": env("AUDIT_ARCHIVER_PASSWORD", ""),
+                                   "TEST": {"MIRROR": "default"}}
+AUDIT_TABLE_WARN_MB = int(env("AUDIT_TABLE_WARN_MB", "2048"))
+AUDIT_ARCHIVE_AFTER_DAYS = int(env("AUDIT_ARCHIVE_AFTER_DAYS", "365"))
 
 AUTH_USER_MODEL = "users.User"
 # Telegram bot integration. The bot authenticates to the API with TELEGRAM_BOT_API_SECRET (fail-closed when empty).
@@ -157,6 +164,7 @@ CELERY_TIMEZONE = "UTC"
 CELERY_BEAT_SCHEDULE = {
     "prune-system-logs": {"task": "apps.analytics.tasks.prune_system_logs", "schedule": 60 * 60 * 24},
     "flush-expired-tokens": {"task": "apps.analytics.tasks.flush_expired_tokens", "schedule": 60 * 60 * 24},
+    "check-audit-size": {"task": "apps.audit.tasks.check_audit_size", "schedule": 60 * 60 * 24},
 }
 
 # REST framework

@@ -1,0 +1,6 @@
+# Secrets and local data must never be committed. (backend/, frontend/ and telegram_bot/ have their own .gitignore.)
+.env
+.env.*
+!.env.example
+*.dump
+*.sha256

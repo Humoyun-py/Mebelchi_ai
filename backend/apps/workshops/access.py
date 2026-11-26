@@ -49,6 +49,7 @@ def require_writable(workshop):
     """Inactive and suspended workshops are read-only for everybody."""
     if workshop.status != Workshop.Status.ACTIVE:
         raise PermissionDenied({"pending": "This workshop is waiting for administrator approval; orders, tasks and invitations open once it is approved.",
+                                "rejected": "The application of this workshop was rejected; see the note from the administrators.",
                                 "inactive": "This workshop is inactive; reactivate it before making changes."}.get(workshop.status,
                                "This workshop is suspended. Contact the platform administrators."))
 

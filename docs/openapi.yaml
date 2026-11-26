@@ -731,6 +731,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminSubscription'
           description: ''
+  /api/v1/admin-api/system/:
+    get:
+      operationId: admin_api_system_retrieve
+      description: Operational status for the admin panel. Never includes secrets
+        or connection strings.
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/admin-api/users/:
     get:
       operationId: admin_api_users_list
@@ -768,9 +785,11 @@ paths:
           enum:
           - homeowner
           - maker
+          - workshop
         description: |-
           * `maker` - Furniture Maker
           * `homeowner` - Home Owner
+          * `workshop` - Furniture Workshop
       - name: search
         required: false
         in: query
@@ -839,6 +858,204 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminUser'
+          description: ''
+  /api/v1/admin-api/workshops/:
+    get:
+      operationId: admin_api_workshops_list
+      description: |-
+        Platform administrators review workshops: approve (pending -> active), suspend, reactivate. Every change is audited and notifies the owner.
+        Administrators get no access to a workshop's orders or tasks through this endpoint.
+      parameters:
+      - in: query
+        name: city
+        schema:
+          type: string
+      - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - individual
+          - workshop
+        description: |-
+          * `individual` - Individual master
+          * `workshop` - Workshop
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - inactive
+          - pending
+          - rejected
+          - suspended
+        description: |-
+          * `pending` - Pending approval
+          * `active` - Active
+          * `inactive` - Inactive
+          * `suspended` - Suspended
+          * `rejected` - Rejected
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminWorkshopList'
+          description: ''
+  /api/v1/admin-api/workshops/{id}/:
+    get:
+      operationId: admin_api_workshops_retrieve
+      description: |-
+        Platform administrators review workshops: approve (pending -> active), suspend, reactivate. Every change is audited and notifies the owner.
+        Administrators get no access to a workshop's orders or tasks through this endpoint.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - admin-api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminWorkshop'
+          description: ''
+  /api/v1/admin-api/workshops/{id}/approve/:
+    post:
+      operationId: admin_api_workshops_approve_create
+      description: pending -> active (also re-activates a suspended or inactive workshop).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - admin-api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewNote'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewNote'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewNote'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminWorkshop'
+          description: ''
+  /api/v1/admin-api/workshops/{id}/reject/:
+    post:
+      operationId: admin_api_workshops_reject_create
+      description: pending -> rejected. A note explaining the decision is required;
+        the owner is notified. The application can be approved later.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - admin-api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewNote'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewNote'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewNote'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminWorkshop'
+          description: ''
+  /api/v1/admin-api/workshops/{id}/suspend/:
+    post:
+      operationId: admin_api_workshops_suspend_create
+      description: |-
+        Platform administrators review workshops: approve (pending -> active), suspend, reactivate. Every change is audited and notifies the owner.
+        Administrators get no access to a workshop's orders or tasks through this endpoint.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this workshop.
+        required: true
+      tags:
+      - admin-api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewNote'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewNote'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewNote'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminWorkshop'
           description: ''
   /api/v1/analytics/features/:
     get:
@@ -4008,6 +4225,192 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/telegram/bot/admin/broadcast/:
+    post:
+      operationId: telegram_bot_admin_broadcast_create
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/admin/stats/:
+    get:
+      operationId: telegram_bot_admin_stats_retrieve
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/admin/system/:
+    get:
+      operationId: telegram_bot_admin_system_retrieve
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/calculate/:
+    post:
+      operationId: telegram_bot_calculate_create
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/cutting-lists/:
+    post:
+      operationId: telegram_bot_cutting_lists_create
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/cutting-lists/{id}/export/{kind}/:
+    get:
+      operationId: telegram_bot_cutting_lists_export_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/files/:
+    post:
+      operationId: telegram_bot_files_create
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/link/:
+    post:
+      operationId: telegram_bot_link_create
+      tags:
+      - telegram
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/telegram/bot/me/:
+    get:
+      operationId: telegram_bot_me_retrieve
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/notifications/:
+    get:
+      operationId: telegram_bot_notifications_retrieve
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/projects/:
+    get:
+      operationId: telegram_bot_projects_retrieve
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: telegram_bot_projects_create
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/projects/{id}/:
+    patch:
+      operationId: telegram_bot_projects_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/unlink/:
+    post:
+      operationId: telegram_bot_unlink_create
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/link-code/:
+    post:
+      operationId: telegram_link_code_create
+      tags:
+      - telegram
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/telegram/status/:
+    get:
+      operationId: telegram_status_retrieve
+      tags:
+      - telegram
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    delete:
+      operationId: telegram_status_destroy
+      tags:
+      - telegram
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/users/{id}/avatar/:
     get:
       operationId: users_avatar_retrieve
@@ -4280,11 +4683,15 @@ paths:
           enum:
           - active
           - inactive
+          - pending
+          - rejected
           - suspended
         description: |-
+          * `pending` - Pending approval
           * `active` - Active
           * `inactive` - Inactive
           * `suspended` - Suspended
+          * `rejected` - Rejected
       tags:
       - workshops
       security:
@@ -4702,6 +5109,78 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/workshops/me/:
+    get:
+      operationId: workshops_me_retrieve
+      description: |-
+        Marketplace-style profile endpoint kept for clients that manage one workshop (`/workshops/me/`): the caller's first owned workshop.
+        Only accounts with the Workshop role may use it. Creating, editing and visibility rules are the same as for `/workshops/`.
+      tags:
+      - workshops
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+    post:
+      operationId: workshops_me_create
+      description: |-
+        Marketplace-style profile endpoint kept for clients that manage one workshop (`/workshops/me/`): the caller's first owned workshop.
+        Only accounts with the Workshop role may use it. Creating, editing and visibility rules are the same as for `/workshops/`.
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Workshop'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
+    patch:
+      operationId: workshops_me_partial_update
+      description: |-
+        Marketplace-style profile endpoint kept for clients that manage one workshop (`/workshops/me/`): the caller's first owned workshop.
+        Only accounts with the Workshop role may use it. Creating, editing and visibility rules are the same as for `/workshops/`.
+      tags:
+      - workshops
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkshop'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkshop'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkshop'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workshop'
+          description: ''
   /api/v1/workspace/summary/:
     get:
       operationId: workspace_summary_retrieve
@@ -4873,7 +5352,7 @@ components:
           type: string
           readOnly: true
         role:
-          $ref: '#/components/schemas/Role899Enum'
+          $ref: '#/components/schemas/Role94eEnum'
         is_active:
           type: boolean
         is_staff:
@@ -4902,6 +5381,67 @@ components:
       - last_name
       - plan
       - project_count
+    AdminWorkshop:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/KindFb4Enum'
+          readOnly: true
+        city:
+          type: string
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status3b9Enum'
+          readOnly: true
+        review_note:
+          type: string
+          readOnly: true
+        owner:
+          type: integer
+          readOnly: true
+        owner_email:
+          type: string
+          readOnly: true
+        member_count:
+          type: integer
+          readOnly: true
+        order_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - city
+      - created_at
+      - id
+      - kind
+      - member_count
+      - name
+      - order_count
+      - owner
+      - owner_email
+      - review_note
+      - slug
+      - status
+      - updated_at
     AuditLog:
       type: object
       properties:
@@ -5469,6 +6009,14 @@ components:
           format: email
       required:
       - email
+    KindFb4Enum:
+      enum:
+      - individual
+      - workshop
+      type: string
+      description: |-
+        * `individual` - Individual master
+        * `workshop` - Workshop
     LanguageEnum:
       enum:
       - en
@@ -6081,6 +6629,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AdminUser'
+    PaginatedAdminWorkshopList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminWorkshop'
     PaginatedAuditLogList:
       type: object
       required:
@@ -6496,7 +7067,7 @@ components:
           type: string
           readOnly: true
         role:
-          $ref: '#/components/schemas/Role899Enum'
+          $ref: '#/components/schemas/Role94eEnum'
         is_active:
           type: boolean
         is_staff:
@@ -7007,7 +7578,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/Role899Enum'
+          - $ref: '#/components/schemas/Role94eEnum'
           readOnly: true
         role_selected:
           type: boolean
@@ -7069,6 +7640,11 @@ components:
         name:
           type: string
           maxLength: 120
+        kind:
+          $ref: '#/components/schemas/KindFb4Enum'
+        city:
+          type: string
+          maxLength: 80
         slug:
           type: string
           readOnly: true
@@ -7095,7 +7671,10 @@ components:
           type: string
           readOnly: true
         status:
-          $ref: '#/components/schemas/WorkshopStatusEnum'
+          $ref: '#/components/schemas/Status3b9Enum'
+        review_note:
+          type: string
+          readOnly: true
         my_role:
           type: string
           readOnly: true
@@ -7318,11 +7897,17 @@ components:
       - first_name
       - last_name
       - password
+    ReviewNote:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 500
     Role:
       type: object
       properties:
         role:
-          $ref: '#/components/schemas/Role899Enum'
+          $ref: '#/components/schemas/RoleRoleEnum'
       required:
       - role
     Role71aEnum:
@@ -7333,14 +7918,24 @@ components:
       description: |-
         * `owner` - Owner
         * `employee` - Employee
-    Role899Enum:
+    Role94eEnum:
+      enum:
+      - maker
+      - homeowner
+      - workshop
+      type: string
+      description: |-
+        * `maker` - Furniture Maker
+        * `homeowner` - Home Owner
+        * `workshop` - Furniture Workshop
+    RoleRoleEnum:
       enum:
       - maker
       - homeowner
       type: string
       description: |-
-        * `maker` - Furniture Maker
-        * `homeowner` - Home Owner
+        * `maker` - maker
+        * `homeowner` - homeowner
     SourceEnum:
       enum:
       - upload
@@ -7379,6 +7974,20 @@ components:
         * `ready` - Ready
         * `delivered` - Delivered
         * `cancelled` - Cancelled
+    Status3b9Enum:
+      enum:
+      - pending
+      - active
+      - inactive
+      - suspended
+      - rejected
+      type: string
+      description: |-
+        * `pending` - Pending approval
+        * `active` - Active
+        * `inactive` - Inactive
+        * `suspended` - Suspended
+        * `rejected` - Rejected
     Status909Enum:
       enum:
       - pending
@@ -7661,7 +8270,7 @@ components:
           readOnly: true
         role:
           allOf:
-          - $ref: '#/components/schemas/Role899Enum'
+          - $ref: '#/components/schemas/Role94eEnum'
           readOnly: true
         role_selected:
           type: boolean
@@ -7754,6 +8363,11 @@ components:
         name:
           type: string
           maxLength: 120
+        kind:
+          $ref: '#/components/schemas/KindFb4Enum'
+        city:
+          type: string
+          maxLength: 80
         slug:
           type: string
           readOnly: true
@@ -7780,7 +8394,10 @@ components:
           type: string
           readOnly: true
         status:
-          $ref: '#/components/schemas/WorkshopStatusEnum'
+          $ref: '#/components/schemas/Status3b9Enum'
+        review_note:
+          type: string
+          readOnly: true
         my_role:
           type: string
           readOnly: true
@@ -7799,18 +8416,9 @@ components:
       - my_role
       - name
       - owner
+      - review_note
       - slug
       - updated_at
-    WorkshopStatusEnum:
-      enum:
-      - active
-      - inactive
-      - suspended
-      type: string
-      description: |-
-        * `active` - Active
-        * `inactive` - Inactive
-        * `suspended` - Suspended
   securitySchemes:
     jwtAuth:
       type: http

@@ -15,13 +15,14 @@ export function SettingsTab({ ws, writable }: { ws: Workshop; writable: boolean 
   const t = useT(); const nav = useNavigate(); const file = useRef<HTMLInputElement>(null)
   const [f, setF] = useState({ name: ws.name, description: ws.description, phone: ws.phone, email: ws.email, address: ws.address }); const [errs, setErrs] = useState<Record<string, string>>({}); const [del, setDel] = useState(false)
   const suspended = ws.status === 'suspended'
+  const locked = suspended || ws.status === 'pending' || ws.status === 'rejected'  // only an administrator moves a workshop out of these
   const dirty = (Object.keys(f) as (keyof typeof f)[]).some((k) => f[k] !== ws[k])
   const save = useAction((b: Record<string, string>) => api.patch(`/workshops/${ws.id}/`, b), { ok: t('ws.saved'), onError: (e) => setErrs({ ...apiError(e).fields, _: apiError(e).message }) })
   const status = useAction((s: string) => api.patch(`/workshops/${ws.id}/`, { status: s }), { ok: t('ws.saved') })
   const logo = useAction((fl: File | null) => { if (!fl) return api.delete(`/workshops/${ws.id}/logo/`); const fd = new FormData(); fd.append('logo', fl); return api.post(`/workshops/${ws.id}/logo/`, fd) }, { ok: t('ws.saved') })
   const remove = useAction(() => api.delete(`/workshops/${ws.id}/`), { ok: t('ws.deleted'), onSuccess: () => nav('/app/workshops'), onError: (e) => { toast.error(apiError(e).message); setDel(false) } })
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); setErrs({}) }
-  const off = suspended || (!writable && ws.status !== 'inactive')
+  const off = locked || (!writable && ws.status !== 'inactive')
   return (
     <div className="max-w-2xl space-y-5">
       <Card className="space-y-4 p-5">
@@ -41,7 +42,7 @@ export function SettingsTab({ ws, writable }: { ws: Workshop; writable: boolean 
         </form>
       </Card>
       <Card className="space-y-3 p-5"><h3 className="font-semibold">{t('ws.statusTitle')}</h3><p className="text-sm text-muted">{suspended ? t('ws.suspendedNote') : t('ws.statusNote')}</p>
-        {!suspended && <div className="w-48"><Select label={t('ord.status')} value={ws.status} disabled={status.isPending} onChange={(e) => status.mutate(e.target.value)} options={[{ value: 'active', label: t('ws.st.active') }, { value: 'inactive', label: t('ws.st.inactive') }]} /></div>}</Card>
+        {!locked && <div className="w-48"><Select label={t('ord.status')} value={ws.status} disabled={status.isPending} onChange={(e) => status.mutate(e.target.value)} options={[{ value: 'active', label: t('ws.st.active') }, { value: 'inactive', label: t('ws.st.inactive') }]} /></div>}</Card>
       <Card className="space-y-3 border-danger/30 p-5"><h3 className="font-semibold text-danger">{t('ws.dangerTitle')}</h3><p className="text-sm text-muted">{t('ws.deleteNote')}</p>
         <Button variant="danger" icon={<Trash2 size={15} />} disabled={suspended} onClick={() => setDel(true)}>{t('ws.delete')}</Button></Card>
       <ConfirmDialog open={del} onClose={() => setDel(false)} title={t('ws.deleteTitle')} message={t('ws.deleteMsg')} cancelLabel={t('common.cancel')} loading={remove.isPending} onConfirm={() => remove.mutate(undefined)} />

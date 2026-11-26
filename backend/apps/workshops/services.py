@@ -105,19 +105,32 @@ def update_workshop(ws: Workshop, actor: User, data: dict) -> Workshop:
     return ws
 
 
-def review_workshop(ws: Workshop, actor: User, target: str) -> Workshop:
-    """Platform administrators approve, suspend or reactivate a workshop (the views check that the caller is staff)."""
-    allowed = {Workshop.Status.ACTIVE: {Workshop.Status.PENDING, Workshop.Status.SUSPENDED, Workshop.Status.INACTIVE},
-               Workshop.Status.SUSPENDED: {Workshop.Status.ACTIVE, Workshop.Status.INACTIVE}}
-    if ws.status not in allowed.get(target, set()):
-        raise err("status", f"Cannot change status from '{ws.status}' to '{target}'.")
-    previous = ws.status
-    ws.status = target
-    event = "workshop.approved" if previous == Workshop.Status.PENDING else "workshop.suspended" if target == Workshop.Status.SUSPENDED else "workshop.reactivated"
+def review_workshop(ws: Workshop, actor: User, target: str, note: str = "") -> Workshop:
+    """Platform administrators approve, reject, suspend or reactivate a workshop (the views check that the caller is staff).
+
+    Rejecting needs a reason. The latest decision note stays on the workshop (`review_note`); the full history is in the audit log."""
+    S = Workshop.Status
+    allowed = {S.ACTIVE: {S.PENDING, S.SUSPENDED, S.INACTIVE, S.REJECTED},   # a rejected application can be reconsidered
+               S.SUSPENDED: {S.ACTIVE, S.INACTIVE},
+               S.REJECTED: {S.PENDING}}
+    note = (note or "").strip()
+    if len(note) > 500:
+        raise err("note", "At most 500 characters.")
     with transaction.atomic():
+        ws = Workshop.objects.select_for_update().get(pk=ws.pk)       # two administrators deciding at once: the second one sees the new status
+        if ws.status not in allowed.get(target, set()):
+            raise err("status", f"Cannot change status from '{ws.status}' to '{target}'.")
+        if target == S.REJECTED and not note:
+            raise err("note", "Tell the owner why the application is rejected.")
+        previous = ws.status
+        ws.status = target
+        ws.review_note = "" if target == S.ACTIVE and not note else note
+        event = ("workshop.rejected" if target == S.REJECTED else "workshop.approved" if previous in (S.PENDING, S.REJECTED)
+                 else "workshop.suspended" if target == S.SUSPENDED else "workshop.reactivated")
         save_with_event(ws, event)
-    notify(ws.owner, {"workshop.approved": "Your workshop was approved", "workshop.suspended": "Your workshop was suspended",
-                      "workshop.reactivated": "Your workshop was reactivated"}[event], ws.name, "success" if target == Workshop.Status.ACTIVE else "warning")
+    titles = {"workshop.approved": "Your workshop was approved", "workshop.rejected": "Your workshop application was rejected",
+              "workshop.suspended": "Your workshop was suspended", "workshop.reactivated": "Your workshop was reactivated"}
+    notify(ws.owner, titles[event], note or ws.name, "success" if target == S.ACTIVE else "warning")
     return ws
 
 
@@ -140,16 +153,20 @@ def invite_member(ws: Workshop, actor: User, email: str) -> WorkshopMember:
     user = User.objects.filter(email__iexact=email.strip(), is_active=True).first()
     if user is None:
         raise err("email", "No active MEBELCHI AI account uses this email. Ask the person to register first.")
-    with transaction.atomic():
-        m = M.objects.select_for_update().filter(workshop=ws, user=user).first()
-        if m is None:
-            m = M(workshop=ws, user=user)
-        elif m.status == M.Status.ACTIVE:
-            raise err("email", "This person is already a member of the workshop.")
-        elif m.status == M.Status.INVITED:
-            raise err("email", "This person has already been invited.")
-        m.role, m.status, m.invited_by, m.removed_at, m.joined_at = M.Role.EMPLOYEE, M.Status.INVITED, actor, None, None
-        save_with_event(m, "member.invited")
+    try:
+        with transaction.atomic():
+            m = M.objects.select_for_update().filter(workshop=ws, user=user).first()
+            if m is None:
+                m = M(workshop=ws, user=user)
+            elif m.status == M.Status.ACTIVE:
+                raise err("email", "This person is already a member of the workshop.")
+            elif m.status == M.Status.INVITED:
+                raise err("email", "This person has already been invited.")
+            m.role, m.status, m.invited_by, m.removed_at, m.joined_at = M.Role.EMPLOYEE, M.Status.INVITED, actor, None, None
+            save_with_event(m, "member.invited")
+    except IntegrityError:
+        # two invitations for the same person raced: there was no row to lock yet, the unique constraint decided who won
+        raise err("email", "This person has already been invited.")
     notify(user, f"Invitation to {ws.name}", f"{actor.full_name} invited you to join the workshop \"{ws.name}\". Accept it from your invitations.", "info")
     return m
 
@@ -180,7 +197,13 @@ def transfer_ownership(ws: Workshop, actor: User, target: WorkshopMember) -> Wor
     if target.workshop_id != ws.id or target.status != M.Status.ACTIVE or target.role != M.Role.EMPLOYEE:
         raise err("role", "Ownership can only be transferred to an active employee of this workshop.")
     with transaction.atomic():
-        current = M.objects.select_for_update().get(workshop=ws, role=M.Role.OWNER)
+        current = M.objects.select_for_update().filter(workshop=ws, role=M.Role.OWNER).first()
+        # a concurrent transfer may have finished while we waited for the lock: re-check under the lock
+        if current is None or current.user_id != actor.id:
+            raise PermissionDenied("Only the workshop owner can do this.")
+        target = M.objects.select_for_update().get(pk=target.pk)
+        if target.status != M.Status.ACTIVE or target.role != M.Role.EMPLOYEE:
+            raise err("role", "Ownership can only be transferred to an active employee of this workshop.")
         # demote first: there must never be two owner rows (unique constraint) nor zero owners after the transaction
         current.role = M.Role.EMPLOYEE
         # the owner CHECK constraint only applies to owners, an ex-owner stays an active employee
