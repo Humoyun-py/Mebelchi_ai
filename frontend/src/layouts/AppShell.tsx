@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, Box, Calculator, ChevronsLeft, ChevronsRight, FileText, FolderClosed, FolderPlus, Image as ImageIcon, LayoutDashboard, LogOut, Menu, MessageSquare,
-  Building2, Moon, PanelRight, Pin, Plus, Ruler, Scissors, Search, Settings, ShieldCheck, Sofa, Sun, Layers, User as UserIcon, X } from 'lucide-react'
+  Armchair, Building2, Moon, PanelRight, Pin, Plus, Ruler, Scissors, Search, Settings, ShieldCheck, Sofa, Sun, Layers, User as UserIcon, X } from 'lucide-react'
 import clsx from 'clsx'
 import { api, apiError } from '../lib/api'
 import { useL, useT } from '../lib/i18n'
@@ -96,6 +96,7 @@ function SidebarBody({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
           <NavItem to="/app/cutting-lists" icon={<Scissors size={18} />} label={t('side.cuts')} collapsed={collapsed} />
           <NavItem to="/app/editor" icon={<Ruler size={18} />} label={t('side.editor')} collapsed={collapsed} />
         </>) : <NavItem to="/app/interior" icon={<Sofa size={18} />} label={t('side.interior')} collapsed={collapsed} />}
+        <NavItem to="/app/rooms" icon={<Armchair size={18} />} label={t('side.rooms')} collapsed={collapsed} />
         {!collapsed && pinned.data?.results.length ? (<>{sec(t('side.pinned'))}
           {pinned.data.results.map((p) => <NavLink key={p.id} to={`/app/projects/${p.id}`} className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted hover:bg-card2 hover:text-fg"><Pin size={14} /><span className="truncate">{p.name}</span></NavLink>)}</>) : null}
         {!collapsed && recent.data?.results.length ? (<>{sec(t('side.recent'))}
