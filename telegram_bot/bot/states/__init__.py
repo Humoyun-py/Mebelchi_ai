@@ -24,3 +24,7 @@ class CalcStates(StatesGroup):
 
 class BroadcastStates(StatesGroup):
     text = State()
+
+
+class OrderStates(StatesGroup):
+    reject_reason = State()

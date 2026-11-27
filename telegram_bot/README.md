@@ -22,6 +22,7 @@ A Telegram ID on its own never proves ownership of a web account; the code is th
 | Material calculator | 6 validated questions, backend engine result (panels, area, edge banding) |
 | Cutting list | same questions, optional project, optimized layout summary, PDF and Excel download |
 | Files | send PDF, JPG/PNG/WEBP, DWG or DXF; validated (type, size, file signature) before upload |
+| Workshop orders | `/orders` (workshop accounts only): list, details, **Accept / Reject (asks for a reason)** and the production steps; the buttons are exactly the moves the server allows. A new marketplace order (and each reminder) is also pushed to the workshop owner's chat **with Accept / Reject / View buttons** |
 | Notifications | unread list; the same messages are pushed to the chat by the backend |
 | Admin | `/admin`, `/stats`, `/users`, `/system_status`, `/broadcast` (only for IDs in `ADMIN_TELEGRAM_IDS` and only if the linked account is staff) |
 
@@ -43,7 +44,7 @@ Without `TELEGRAM_BOT_API_SECRET` every bot endpoint refuses requests (fail clos
 ## Tests
 
 ```bash
-cd telegram_bot && pytest -q          # 36 unit and handler tests, no network
+cd telegram_bot && pytest -q          # 51 unit and handler tests, no network
 ```
 
 The API client, FSM flows and validation are covered by unit tests. An end-to-end run of the same client against a

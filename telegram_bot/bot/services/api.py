@@ -95,6 +95,17 @@ class BackendClient:
     async def notifications(self, telegram_id: int) -> list[dict]:
         return (await self._call("GET", "/telegram/bot/notifications/", params={"telegram_id": telegram_id})).json()
 
+    async def orders(self, telegram_id: int, status: str = "") -> list[dict]:
+        params = {"telegram_id": telegram_id, **({"status": status} if status else {})}
+        return (await self._call("GET", "/telegram/bot/orders/", params=params)).json()
+
+    async def order(self, telegram_id: int, order_id: int) -> dict:
+        return (await self._call("GET", f"/telegram/bot/orders/{order_id}/", params={"telegram_id": telegram_id})).json()
+
+    async def set_order_status(self, telegram_id: int, order_id: int, status: str, note: str = "") -> dict:
+        body = {"telegram_id": telegram_id, "status": status, **({"note": note} if note else {})}
+        return (await self._call("POST", f"/telegram/bot/orders/{order_id}/status/", json=body)).json()
+
     async def admin_stats(self, telegram_id: int) -> dict:
         return (await self._call("GET", "/telegram/bot/admin/stats/", params={"telegram_id": telegram_id})).json()
 

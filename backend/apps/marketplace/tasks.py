@@ -44,7 +44,7 @@ def send_reminders(now=None) -> int:
         n = o.reminders_sent + 1
         left = maximum - n
         notify(o.workshop.owner, f"Reminder: order {o.order_number}",
-               f"{o.title} is waiting for your answer (reminder {n} of {maximum}). Please accept or reject it.", "warning")
+               f"{o.title} is waiting for your answer (reminder {n} of {maximum}). Please accept or reject it.", "warning", order_id=o.pk)
         sent += 1
         if n == maximum:
             if o.customer_user:

@@ -109,15 +109,38 @@ def user_for_telegram(telegram_id: int):
     return link.user if link else None
 
 
-def telegram_api_send(chat_id: int, text: str) -> bool:
-    """Send a plain-text message through the Telegram Bot API. Never raises."""
+ORDER_BUTTONS = {
+    "uz": {"acc": "Qabul qilish", "rej": "Rad etish", "view": "Ko'rish"},
+    "ru": {"acc": "Принять", "rej": "Отклонить", "view": "Открыть"},
+    "en": {"acc": "Accept", "rej": "Reject", "view": "View"},
+}
+
+
+def order_action_buttons(user, order_id: int) -> list[list[dict]] | None:
+    """Inline buttons for a workshop owner's pending order, or None. The callback data (`ord:<action>:<id>`) is parsed by the bot;
+    the server re-checks ownership and the allowed transition when the button is pressed, so a stale button can only fail safely."""
+    from apps.workshops import access
+    from apps.workshops.models import Order
+
+    order = Order.objects.filter(pk=order_id).first()
+    if order is None or order.status != Order.Status.PENDING:
+        return None
+    if not access.owner_workshop_ids(user).filter(workshop_id=order.workshop_id).exists():
+        return None
+    labels = ORDER_BUTTONS.get(getattr(user, "language", "uz"), ORDER_BUTTONS["uz"])
+    return [[{"text": labels["acc"], "callback_data": f"ord:acc:{order.pk}"}, {"text": labels["rej"], "callback_data": f"ord:rej:{order.pk}"}],
+            [{"text": labels["view"], "callback_data": f"ord:view:{order.pk}"}]]
+
+
+def telegram_api_send(chat_id: int, text: str, buttons: list[list[dict]] | None = None) -> bool:
+    """Send a message through the Telegram Bot API (optionally with inline buttons). Never raises."""
     token = settings.TELEGRAM_BOT_TOKEN
     if not token:
         logger.info("TELEGRAM_BOT_TOKEN is empty; skipping message to chat %s", chat_id)
         return False
     try:
         r = httpx.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                       json={"chat_id": chat_id, "text": text[:4000]}, timeout=5)
+                       json={"chat_id": chat_id, "text": text[:4000], **({"reply_markup": {"inline_keyboard": buttons}} if buttons else {})}, timeout=5)
         if r.status_code != 200:
             logger.warning("Telegram sendMessage failed with HTTP %s", r.status_code)
             return False

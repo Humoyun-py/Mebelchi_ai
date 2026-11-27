@@ -28,6 +28,8 @@ from apps.notifications.models import Notification
 from apps.projects import services as project_services
 from apps.projects.models import Project
 from apps.subscriptions.services import enforce_export_limit, enforce_storage_limit
+from apps.workshops import access as workshop_access, services as workshop_services
+from apps.workshops.models import Order
 
 from . import services
 from .models import TelegramLink
@@ -259,6 +261,64 @@ class BotNotificationsView(BotView):
         user = self.user_for(self.telegram_id_from(request.query_params))
         qs = Notification.objects.filter(user=user, read=False).order_by("-created_at")[:5]
         return Response([{"id": n.id, "title": n.title, "body": n.body, "level": n.level, "created_at": n.created_at} for n in qs])
+
+
+# ----- workshop orders: the linked account answers marketplace orders from the chat ----------------------------------
+
+def present_order(order: Order, user, *, owner: bool) -> dict:
+    d = {"id": order.pk, "order_number": order.order_number, "title": order.title, "description": order.description,
+         "customer_name": order.customer_name, "customer_phone": order.customer_phone, "customer_address": order.customer_address,
+         "status": order.status, "allowed_next_statuses": workshop_services.allowed_order_statuses(order, owner),
+         "deadline": order.deadline.isoformat() if order.deadline else None, "rejection_reason": order.rejection_reason}
+    if owner:  # employees never see money fields (same rule as the web API)
+        d["total_price"] = str(order.total_price)
+        d["paid_amount"] = str(order.paid_amount)
+    return d
+
+
+class BotOrdersView(BotView):
+    def get(self, request):
+        user = self.user_for(self.telegram_id_from(request.query_params))
+        qs = workshop_access.visible_orders(user).select_related("workshop")
+        st = request.query_params.get("status")
+        if st:
+            if st not in Order.Status.values:
+                raise ValidationError({"status": "Unknown status."})
+            qs = qs.filter(status=st)
+        owned = set(workshop_access.owner_workshop_ids(user).values_list("workshop_id", flat=True))
+        rows = qs.order_by("-created_at", "-id")[:10]
+        return Response([present_order(o, user, owner=o.workshop_id in owned) for o in rows])
+
+
+class BotOrderView(BotView):
+    def order_for(self, user, pk):
+        order = workshop_access.visible_orders(user).select_related("workshop").filter(pk=pk).first()
+        if order is None:
+            raise NotFound("Order not found.")  # also what a foreign order looks like: no information leak
+        return order
+
+    def get(self, request, pk):
+        user = self.user_for(self.telegram_id_from(request.query_params))
+        order = self.order_for(user, pk)
+        owner = workshop_access.owner_workshop_ids(user).filter(workshop_id=order.workshop_id).exists()
+        return Response(present_order(order, user, owner=owner))
+
+
+class BotOrderStatusView(BotOrderView):
+    def post(self, request, pk):
+        user = self.user_for(self.telegram_id_from(request.data))
+        order = self.order_for(user, pk)
+        new_status = request.data.get("status")
+        if new_status not in Order.Status.values:
+            raise ValidationError({"status": "Unknown status."})
+        data = {"status": new_status}
+        note = str(request.data.get("note", "") or "").strip()
+        if note:
+            data["status_note"] = note[:255]
+        # the same service the web API uses: ownership, allowed transitions, the mandatory rejection reason, notifications
+        order = workshop_services.update_order(order, user, data)
+        order.refresh_from_db()
+        return Response(present_order(order, user, owner=True))
 
 
 # ----- bot admin commands: the linked account must be staff -------------------------------------------------------

@@ -3,7 +3,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from bot.handlers.common import linked_user, send_menu
+from bot.handlers.common import is_workshop, linked_user, send_menu
 from bot.keyboards import cancel_keyboard, main_menu, Nav
 from bot.services.api import ApiError, BackendClient
 from bot.states import LinkStates
@@ -21,21 +21,21 @@ async def cmd_start(message: Message, state: FSMContext, api: BackendClient, lan
         await message.answer(t("welcome_unlinked", lang), reply_markup=main_menu(lang, linked=False))
         return
     name = me["user"]["first_name"] or me["user"]["email"]
-    await message.answer(t("welcome_linked", lang, name=name), reply_markup=main_menu(lang, linked=True))
+    await message.answer(t("welcome_linked", lang, name=name), reply_markup=main_menu(lang, linked=True, workshop=is_workshop(me)))
 
 
 @router.message(Command("cancel"))
 async def cmd_cancel(message: Message, state: FSMContext, api: BackendClient, lang: str) -> None:
     await state.clear()
     me = await linked_user(api, message.from_user.id)
-    await message.answer(t("cancelled", lang), reply_markup=main_menu(lang, linked=me is not None))
+    await message.answer(t("cancelled", lang), reply_markup=main_menu(lang, linked=me is not None, workshop=is_workshop(me)))
 
 
 @router.callback_query(Nav.filter(F.to == "cancel"))
 async def cb_cancel(callback: CallbackQuery, state: FSMContext, api: BackendClient, lang: str) -> None:
     await state.clear()
     me = await linked_user(api, callback.from_user.id)
-    await send_menu(callback, lang, linked=me is not None, text=t("cancelled", lang))
+    await send_menu(callback, lang, linked=me is not None, text=t("cancelled", lang), workshop=is_workshop(me))
     await callback.answer()
 
 
@@ -68,7 +68,7 @@ async def receive_link_code(message: Message, state: FSMContext, api: BackendCli
         await message.answer(api_error_text(exc, lang), reply_markup=cancel_keyboard(lang))
         return
     await state.clear()
-    await message.answer(t("link_ok", lang, email=linked["email"]), reply_markup=main_menu(lang, linked=True))
+    await message.answer(t("link_ok", lang, email=linked["email"]), reply_markup=main_menu(lang, linked=True, workshop=linked.get("role") == "workshop"))
 
 
 @router.message(Command("unlink"))

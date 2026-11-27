@@ -5,18 +5,22 @@ from bot.keyboards import main_menu
 from bot.utils.i18n import t
 
 
-async def send_menu(event: Message | CallbackQuery, lang: str, linked: bool, text: str | None = None) -> None:
+async def send_menu(event: Message | CallbackQuery, lang: str, linked: bool, text: str | None = None, workshop: bool = False) -> None:
     message = event if isinstance(event, Message) else event.message
     body = text or t("menu_title", lang)
     if isinstance(event, CallbackQuery) and message is not None:
         try:
-            await message.edit_text(body, reply_markup=main_menu(lang, linked))
+            await message.edit_text(body, reply_markup=main_menu(lang, linked, workshop))
             return
         except Exception:  # noqa: BLE001 - message may be unchanged or too old to edit; send a new one instead
             pass
     if message is not None:
-        await message.answer(body, reply_markup=main_menu(lang, linked))
+        await message.answer(body, reply_markup=main_menu(lang, linked, workshop))
 
 
 async def linked_user(api, telegram_id: int) -> dict | None:
     return await api.me(telegram_id)
+
+
+def is_workshop(me: dict | None) -> bool:
+    return bool(me) and me["user"].get("role") == "workshop"

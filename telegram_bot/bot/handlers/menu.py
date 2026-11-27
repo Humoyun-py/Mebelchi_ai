@@ -4,7 +4,7 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
-from bot.handlers.common import linked_user, send_menu
+from bot.handlers.common import is_workshop, linked_user, send_menu
 from bot.keyboards import Nav, back_to_menu, web_keyboard
 from bot.services.api import BackendClient
 from bot.utils.i18n import t
@@ -16,7 +16,7 @@ router = Router(name="menu")
 @router.callback_query(Nav.filter(F.to == "menu"))
 async def show_menu(event: Message | CallbackQuery, api: BackendClient, lang: str) -> None:
     me = await linked_user(api, event.from_user.id)
-    await send_menu(event, lang, linked=me is not None)
+    await send_menu(event, lang, linked=me is not None, workshop=is_workshop(me))
     if isinstance(event, CallbackQuery):
         await event.answer()
 

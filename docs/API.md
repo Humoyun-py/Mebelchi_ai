@@ -344,3 +344,16 @@ Append-only record of who did what: `actor`, `actor_email` (kept if the account 
 The APK answers with `Content-Type: application/vnd.android.package-archive`, `X-Content-SHA256` and `X-Content-Type-Options: nosniff`. Behind nginx (`RELEASES_X_ACCEL_PREFIX` set in docker-compose) the file is streamed by nginx through `X-Accel-Redirect`; Django still decides whether it may be served and counts the download. `/media/` stays closed. The website page is `/android`.
 
 Data model `releases.AppRelease`: platform, channel (`production` | `development`; development builds are never public), version name and code (unique per platform + channel; a lower code cannot be published after a higher one because Android refuses downgrades), the file, `sha256` and size computed from the file at registration, notes, `is_published`, download counter. Add builds with `manage.py publish_android_release` (see DEPLOYMENT.md section 11); administrators publish/unpublish and edit notes in the Django admin; changes are audited.
+
+
+## Telegram bot: workshop orders
+
+Bot endpoints (header `X-Bot-Secret`, always acting for the account linked to `telegram_id`; the same rules as the web order API apply):
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/v1/telegram/bot/orders/?telegram_id=&status=` | the 10 newest orders the linked account can see (`status` optional) |
+| GET | `/api/v1/telegram/bot/orders/{id}/?telegram_id=` | one order; a foreign order answers 404 |
+| POST | `/api/v1/telegram/bot/orders/{id}/status/` | body `{telegram_id, status, note?}`; uses the web order service: owner only, allowed transitions only, a rejection needs `note` |
+
+Money fields are returned to the workshop owner only. New marketplace orders and their reminders are pushed to the owner's Telegram chat with inline buttons `ord:acc:<id>`, `ord:rej:<id>` and `ord:view:<id>`.

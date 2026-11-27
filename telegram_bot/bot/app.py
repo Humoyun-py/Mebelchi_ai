@@ -3,7 +3,7 @@ from aiogram import Dispatcher
 from aiogram.fsm.storage.base import BaseStorage
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.handlers import admin, calculator, errors, files, menu, projects, start
+from bot.handlers import admin, calculator, errors, files, menu, orders, projects, start
 from bot.middlewares import ServicesMiddleware, ThrottlingMiddleware
 from bot.services.api import BackendClient
 
@@ -30,6 +30,7 @@ def build_dispatcher(*, api: BackendClient, storage: BaseStorage, web_app_url: s
     dp.include_router(start.router)
     dp.include_router(menu.router)
     dp.include_router(projects.router)
+    dp.include_router(orders.router)
     dp.include_router(calculator.router)
     dp.include_router(files.router)
     dp.include_router(admin.register_admin_handlers(admin_ids))
@@ -40,6 +41,7 @@ BOT_COMMANDS = [
     ("start", "Menu"),
     ("link", "Link account"),
     ("projects", "My projects"),
+    ("orders", "Workshop orders"),
     ("calc", "Material calculator"),
     ("cutting", "Cutting list"),
     ("help", "Help"),

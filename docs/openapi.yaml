@@ -5678,6 +5678,55 @@ paths:
       responses:
         '200':
           description: No response body
+  /api/v1/telegram/bot/orders/:
+    get:
+      operationId: telegram_bot_orders_retrieve
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/orders/{id}/:
+    get:
+      operationId: telegram_bot_orders_retrieve_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+  /api/v1/telegram/bot/orders/{id}/status/:
+    get:
+      operationId: telegram_bot_orders_status_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: telegram_bot_orders_status_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - telegram
+      responses:
+        '200':
+          description: No response body
   /api/v1/telegram/bot/projects/:
     get:
       operationId: telegram_bot_projects_retrieve

@@ -124,7 +124,7 @@ def place_order(user, data: dict, *, rerouted_from: Order | None = None) -> Orde
                              "source": q["source"], "notes": q["notes"], "budget": str(p["budget"]) if p["budget"] else None, "deadline_days": p["deadline_days"]})
         save_with_event(order, "order.placed")
         ws_services._log_order(order, "", user, "Placed through the marketplace")
-        notify(ws.owner, f"New order {order.order_number}", f"{title}, {q['currency']} {q['total']}. Please accept or reject it within {RESPONSE_HOURS} hours.", "info")
+        notify(ws.owner, f"New order {order.order_number}", f"{title}, {q['currency']} {q['total']}. Please accept or reject it within {RESPONSE_HOURS} hours.", "info", order_id=order.pk)
         notify(user, f"Order {order.order_number}", f"Your order was sent to {ws.name}. They have {RESPONSE_HOURS} hours to answer; we will tell you as soon as they do.")
         return order
 
