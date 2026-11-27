@@ -7,6 +7,7 @@ import '../storage/token_storage.dart';
 
 const _retriedKey = 'mebelchi.retried';
 const _noAuthKey = 'mebelchi.noAuth';
+const _netRetryKey = 'mebelchi.netRetried';
 
 /// Options for endpoints that must be called without a bearer token (login, register, refresh, password reset).
 Options get noAuth => Options(extra: {_noAuthKey: true});
@@ -50,6 +51,17 @@ class ApiClient {
 
   Future<void> _onError(DioException e, ErrorInterceptorHandler h) async {
     final o = e.requestOptions;
+    // A dropped connection (a keep-alive socket the server already closed, a brief signal loss) is retried once, for reads only: a GET can
+    // never change data, so repeating it is safe. Writes are never repeated automatically.
+    if (e.type == DioExceptionType.connectionError && o.method == 'GET' && o.extra[_netRetryKey] != true) {
+      o.extra[_netRetryKey] = true;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      try {
+        return h.resolve(await dio.fetch(o));
+      } on DioException catch (err) {
+        return h.next(err);
+      }
+    }
     if (e.response?.statusCode != 401 || o.extra[_noAuthKey] == true || o.extra[_retriedKey] == true) return h.next(e);
     final sent = o.headers['Authorization'];
     final current = await _storage.read();

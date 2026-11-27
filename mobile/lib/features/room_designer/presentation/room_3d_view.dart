@@ -18,7 +18,7 @@ typedef _Key = ({int id, String rev});
 /// The GLB is rebuilt by the server from the saved design, so the 3D view always shows real geometry; [rev] (the design's
 /// `updated_at`) makes it reload after every change.
 final roomGlbProvider = FutureProvider.autoDispose.family<String, _Key>((ref, key) async {
-  final f = await ref.watch(roomRepositoryProvider).exportGlb(key.id);
+  final f = await ref.watch(roomRepositoryProvider).exportGlb(key.id, cutaway: true);
   return glbDataUri(f.bytes);
 });
 
@@ -46,6 +46,10 @@ class Room3DView extends ConsumerWidget {
                 src: uri,
                 alt: s.t('rd.view3d.alt'),
                 cameraControls: true,
+                // a raised corner view (from the south-east, like the web 3D tab) so the cut-away shows the inside of the room
+                cameraOrbit: '35deg 58deg auto',
+                minCameraOrbit: 'auto 5deg auto',
+                maxCameraOrbit: 'auto 88deg auto',
                 autoRotate: false,
                 backgroundColor: _bg,
                 interactionPrompt: InteractionPrompt.none,

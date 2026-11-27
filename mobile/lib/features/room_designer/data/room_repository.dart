@@ -49,7 +49,8 @@ class RoomRepository {
   Future<DownloadedFile> exportProject(int id) => _download('rooms/$id/export/', 'room.mebelchi');
 
   /// A standard GLB of the 3D room, used by the viewer and for sharing with other 3D apps.
-  Future<DownloadedFile> exportGlb(int id) => _download('rooms/$id/export-glb/', 'room.glb');
+  /// [cutaway] drops the ceiling and the two front walls (for the in-app viewer); the shared file is always the complete room.
+  Future<DownloadedFile> exportGlb(int id, {bool cutaway = false}) => _download('rooms/$id/export-glb/${cutaway ? '?cutaway=1' : ''}', 'room.glb');
 
   /// Stores a room photo in the gallery and returns its id. The photo is kept as a reference only; the server does not analyse it.
   Future<int> uploadPhoto(String path) => _api.guard(() async {

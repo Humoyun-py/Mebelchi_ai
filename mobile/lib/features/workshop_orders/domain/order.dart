@@ -1,6 +1,18 @@
 /// Statuses the server knows. The app never decides what is allowed: it shows the buttons for `allowedNext`, which the server computes.
 const orderStatuses = ['new', 'pending', 'confirmed', 'rejected', 'in_production', 'quality_check', 'ready', 'delivery', 'delivered', 'cancelled'];
 
+/// The order buttons are shown in: the forward steps first, then reject, and "cancel" last. The server lists the allowed moves alphabetically.
+const _actionPriority = ['confirmed', 'in_production', 'quality_check', 'ready', 'delivery', 'delivered', 'rejected', 'cancelled'];
+
+List<String> sortedActions(List<String> allowed) {
+  int rank(String s) {
+    final i = _actionPriority.indexOf(s);
+    return i < 0 ? _actionPriority.length : i;
+  }
+
+  return [...allowed]..sort((a, b) => rank(a).compareTo(rank(b)));
+}
+
 /// Filter chips of the list (a single server-side `status` filter each).
 const orderFilters = ['', 'pending', 'confirmed', 'in_production', 'ready', 'delivered'];
 

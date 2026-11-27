@@ -10,6 +10,8 @@ Rules
 """
 from __future__ import annotations
 
+import re
+
 from django.db import transaction
 
 from apps.conversations import flow
@@ -335,12 +337,21 @@ def export_project(user, pk: int) -> tuple[str, dict]:
     return f.design.name, mebelchi.build(f.design.name, f.design.config)
 
 
-def export_glb(user, pk: int) -> tuple[str, bytes]:
+_FRONT_WALL = re.compile(r"^Wall (south|east)\b")
+
+
+def cutaway(boxes: list[dict]) -> list[dict]:
+    """The same cut-away the web 3D tab uses: without the ceiling and the two walls nearest the default camera the furniture is visible."""
+    return [b for b in boxes if b.get("kind") != "ceiling" and not _FRONT_WALL.match(b.get("name", ""))]
+
+
+def export_glb(user, pk: int, cut: bool = False) -> tuple[str, bytes]:
     from apps.geometry import exporters
     f = RoomFlow.objects.select_related("design").filter(pk=pk, owner=user).first()
     if f is None:
         raise NotFound
-    return f.design.name if f.design_id else "room", exporters.to_glb(model(f)["boxes"])
+    boxes = model(f)["boxes"]
+    return f.design.name if f.design_id else "room", exporters.to_glb(cutaway(boxes) if cut else boxes)
 
 
 def import_project(user, raw) -> tuple[RoomFlow, list[str]]:

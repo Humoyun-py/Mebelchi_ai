@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mebelchi_ai/core/errors/app_exception.dart';
@@ -78,4 +81,55 @@ void main() {
     await expectLater(api.guard(() => api.dio.post('auth/login/', data: {}, options: noAuth)), throwsA(isA<AppException>()));
     expect(a.log.where((o) => o.path == 'auth/refresh/'), isEmpty);
   });
+
+  group('dropped connections', () {
+    HttpClientAdapter flaky(int failures, List<String> log) {
+      var left = failures;
+      return _Flaky((o) {
+        log.add(o.method);
+        if (left > 0) {
+          left--;
+          throw DioException.connectionError(requestOptions: o, reason: 'socket closed');
+        }
+        return (status: 200, body: {'ok': true});
+      });
+    }
+
+    test('a GET is repeated once after a dropped connection', () async {
+      final log = <String>[];
+      final api = ApiClient(storage: storage, baseUrl: 'http://x/api/v1', adapter: flaky(1, log));
+      final r = await api.dio.get('rooms/1/export-glb/');
+      expect(r.statusCode, 200);
+      expect(log, ['GET', 'GET']);
+    });
+
+    test('it gives up after that single retry', () async {
+      final log = <String>[];
+      final api = ApiClient(storage: storage, baseUrl: 'http://x/api/v1', adapter: flaky(5, log));
+      await expectLater(api.dio.get('projects/'), throwsA(isA<DioException>()));
+      expect(log.length, 2);
+    });
+
+    test('a POST is never repeated automatically (it could create the thing twice)', () async {
+      final log = <String>[];
+      final api = ApiClient(storage: storage, baseUrl: 'http://x/api/v1', adapter: flaky(1, log));
+      await expectLater(api.dio.post('projects/', data: {'name': 'x'}), throwsA(isA<DioException>()));
+      expect(log, ['POST']);
+    });
+  });
+}
+
+class _Flaky implements HttpClientAdapter {
+  _Flaky(this.handler);
+  final ({int status, Object? body}) Function(RequestOptions o) handler;
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    final r = handler(options);
+    return ResponseBody.fromString(jsonEncode(r.body), r.status, headers: {
+      Headers.contentTypeHeader: ['application/json'],
+    });
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

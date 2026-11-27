@@ -77,6 +77,11 @@ def test_action_buttons_are_exactly_what_the_server_allows():
     assert not [b for b in buttons(order_actions_keyboard(order("delivered", ()), "uz")) if b.callback_data.startswith("ord:")]
 
 
+def test_actions_are_ordered_forward_first_and_cancel_last():
+    cb = [b.callback_data for b in buttons(order_actions_keyboard(order("pending", ("cancelled", "confirmed", "rejected")), "uz"))]
+    assert cb[:3] == ["ord:acc:7", "ord:rej:7", "ord:to_cancelled:7"]
+
+
 def test_list_keyboard_has_one_button_per_order():
     kb = orders_keyboard([order(), order(id=8)], "uz")
     assert [b.callback_data for b in buttons(kb)][:2] == ["ord:view:7", "ord:view:8"]

@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/l10n/strings.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_button.dart';
@@ -28,7 +29,16 @@ class FurnishPanel extends ConsumerStatefulWidget {
   ConsumerState<FurnishPanel> createState() => _FurnishPanelState();
 }
 
+/// The catalogue label in the interface language (the stored item name is English); falls back to the stored name.
+String _titleFor(Json it, List<Json> catalog, String lang) {
+  final c = catalog.where((t) => t['slug'] == it['template']).firstOrNull;
+  if (c != null) return loc(c['label'], lang);
+  // a finished (read-only) design has no catalogue in its question: use the built-in names by slug
+  return S(lang).templateName(it['template'] as String?, '${it['name'] ?? it['template']}');
+}
+
 class _FurnishPanelState extends ConsumerState<FurnishPanel> {
+  String _itemTitle(Json it) => _titleFor(it, asJsonList(widget.flow.question['catalog']), ref.read(languageProvider));
   bool _busy = false;
   Object? _error;
 
@@ -161,7 +171,7 @@ class _FurnishPanelState extends ConsumerState<FurnishPanel> {
           for (final it in items)
             Card(
               child: ListTile(
-                title: Text('${it['name'] ?? it['template']}'),
+                title: Text(_itemTitle(it)),
                 subtitle: Text(_dims(it)),
                 trailing: const Icon(LucideIcons.chevronRight),
                 onTap: readOnly ? null : () => _editItem(it),
@@ -233,6 +243,11 @@ class _ItemSheet extends ConsumerStatefulWidget {
 }
 
 class _ItemSheetState extends ConsumerState<_ItemSheet> {
+  String _itemTitle(Json it) {
+    final flow = ref.read(roomControllerProvider(widget.roomId)).value;
+    return _titleFor(it, flow == null ? const [] : asJsonList(flow.question['catalog']), ref.read(languageProvider));
+  }
+
   bool _busy = false;
   Object? _error;
   String? _localError;
@@ -295,7 +310,7 @@ class _ItemSheetState extends ConsumerState<_ItemSheet> {
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('${it['name'] ?? it['template']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(_itemTitle(it), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           if (_error != null || _localError != null) ...[const SizedBox(height: 8), FormError(_localError ?? s.error(_error!))],
           const SizedBox(height: 16),
           Text(s.t('rd.item.move'), style: const TextStyle(fontWeight: FontWeight.w600)),

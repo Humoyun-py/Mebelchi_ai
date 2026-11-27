@@ -226,7 +226,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                 const SizedBox(height: 20),
                 Text(s.t('order.actions'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                 const SizedBox(height: 8),
-                for (final n in o.allowedNext) ...[
+                for (final n in sortedActions(o.allowedNext)) ...[
                   AppButton(label: s.t('order.action.$n'), outlined: !(n == 'confirmed' || n == 'in_production'), loading: _busy, onPressed: () => _move(n)),
                   const SizedBox(height: 8),
                 ],
