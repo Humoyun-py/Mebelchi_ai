@@ -1,9 +1,9 @@
 /// Build-time configuration. Pass `--dart-define=API_BASE_URL=https://example.com/api/v1` for real builds.
-/// The default points at a Django dev server on the host machine as seen from the Android emulator.
+/// The default is the deployed server on Render; for a local Django on the host use --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1 (debug).
 class Env {
   Env._();
 
-  static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8000/api/v1');
+  static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://mebelchi-backend.onrender.com/api/v1');
 
   /// Only a TEST build (tool/release_android.sh with TEST_BUILD=1) may talk plain http; the id suffix and label keep it apart from the real app.
   static const bool testBuild = bool.fromEnvironment('MEBELCHI_TEST_BUILD');
