@@ -175,6 +175,34 @@ class AccelRedirectTests(ReleaseBase):
             self.assertEqual(self.client.get("/api/v1/app/android/1/download/").status_code, 404)
 
 
+class ExternalUrlTests(ReleaseBase):
+    def test_download_redirects_to_the_external_https_address_and_counts(self):
+        rel = self.register(code=1, publish=True, external_url="https://github.com/o/r/releases/download/v1/app.apk")
+        r = self.client.get("/api/v1/app/android/1/download/")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "https://github.com/o/r/releases/download/v1/app.apk")
+        self.assertEqual(r["X-Content-SHA256"], rel.sha256)
+        rel.refresh_from_db()
+        self.assertEqual(rel.download_count, 1)
+
+    def test_latest_alias_also_redirects(self):
+        self.register(code=1, publish=True, external_url="https://example.com/a.apk")
+        self.assertEqual(self.client.get("/api/v1/app/android/1/download/").status_code, 302)
+
+    def test_only_https_is_accepted(self):
+        with self.assertRaises(services.ReleaseError):
+            self.register(code=1, external_url="http://example.com/a.apk")
+        self.assertFalse(AppRelease.objects.exists())
+
+    def test_an_unpublished_external_release_is_not_reachable(self):
+        self.register(code=1, publish=False, external_url="https://example.com/a.apk")
+        self.assertEqual(self.client.get("/api/v1/app/android/1/download/").status_code, 404)
+
+    def test_command_takes_external_url(self):
+        call_command("publish_android_release", apk=str(self.apk()), app_version="1.0.0", code=1, notes="", channel="production", publish=True, notes_file="", external_url="https://example.com/a.apk")
+        self.assertEqual(AppRelease.objects.get().external_url, "https://example.com/a.apk")
+
+
 class CommandTests(ReleaseBase):
     def test_command_registers_and_publishes(self):
         out = io.StringIO()

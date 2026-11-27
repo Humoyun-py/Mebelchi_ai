@@ -44,8 +44,10 @@ def check_apk(path: Path) -> None:
 
 @transaction.atomic
 def register_apk(path: str | Path, *, version_name: str, version_code: int, notes: str = "",
-                 channel: str = AppRelease.Channel.PRODUCTION, publish: bool = False) -> AppRelease:
+                 channel: str = AppRelease.Channel.PRODUCTION, publish: bool = False, external_url: str = "") -> AppRelease:
     path = Path(path)
+    if external_url and not external_url.startswith("https://"):
+        raise ReleaseError("external_url must start with https://")
     if not re.match(VERSION_RE, version_name or ""):
         raise ReleaseError("version_name must look like 1.2.3")
     if isinstance(version_code, bool) or not isinstance(version_code, int) or version_code <= 0:
@@ -57,7 +59,7 @@ def register_apk(path: str | Path, *, version_name: str, version_code: int, note
         raise ReleaseError(f"Android {channel} version code {version_code} already exists; every build needs a higher number")
     digest = sha256_of(path)
     rel = AppRelease(platform="android", channel=channel, version_name=version_name, version_code=version_code, notes=notes.strip(),
-                     sha256=digest, size_bytes=path.stat().st_size)
+                     sha256=digest, size_bytes=path.stat().st_size, external_url=external_url)
     name = f"mebelchi-ai-{channel}-{version_name}-{version_code}.apk"
     with open(path, "rb") as f:
         rel.apk.save(name, File(f), save=False)

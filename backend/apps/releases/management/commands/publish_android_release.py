@@ -16,11 +16,12 @@ class Command(BaseCommand):
         p.add_argument("--notes-file", default="")
         p.add_argument("--channel", default="production", choices=["production", "development"])
         p.add_argument("--publish", action="store_true")
+        p.add_argument("--external-url", default="", help="https address the download redirects to (the APK file is still read once for its checksum)")
 
     def handle(self, *a, **o):
         notes = Path(o["notes_file"]).read_text(encoding="utf-8") if o["notes_file"] else o["notes"]
         try:
-            rel = services.register_apk(o["apk"], version_name=o["app_version"], version_code=o["code"], notes=notes, channel=o["channel"], publish=o["publish"])
+            rel = services.register_apk(o["apk"], version_name=o["app_version"], version_code=o["code"], notes=notes, channel=o["channel"], publish=o["publish"], external_url=o["external_url"])
         except services.ReleaseError as e:
             raise CommandError(str(e)) from e
         self.stdout.write(self.style.SUCCESS(f"{rel} registered ({rel.size_bytes} bytes)"))

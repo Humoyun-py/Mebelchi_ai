@@ -25,6 +25,7 @@ class AppRelease(models.Model):
     apk = models.FileField(upload_to="releases/", max_length=200)
     sha256 = models.CharField(max_length=64, validators=[RegexValidator(r"^[0-9a-f]{64}$", "Lower-case hex SHA-256")])
     size_bytes = models.BigIntegerField()
+    external_url = models.URLField(max_length=500, blank=True, help_text="When set, the download is redirected to this https address (e.g. a GitHub release asset) instead of served from this server's disk")
     notes = models.TextField(blank=True, help_text="Release notes shown on the download page")
     is_published = models.BooleanField(default=False)
     published_at = models.DateTimeField(null=True, blank=True)

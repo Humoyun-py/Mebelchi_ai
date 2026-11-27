@@ -12,7 +12,7 @@ class AppReleaseAdmin(admin.ModelAdmin):
     list_display = ("version_name", "version_code", "channel", "is_published", "size_bytes", "download_count", "published_at", "created_at")
     list_filter = ("channel", "is_published")
     readonly_fields = [f.name for f in AppRelease._meta.fields if f.name not in ("notes", "is_published")]
-    fields = ["platform", "channel", "version_name", "version_code", "apk", "sha256", "size_bytes", "notes", "is_published", "published_at", "download_count", "created_at"]
+    fields = ["platform", "channel", "version_name", "version_code", "apk", "external_url", "sha256", "size_bytes", "notes", "is_published", "published_at", "download_count", "created_at"]
     actions = ["publish", "unpublish"]
 
     def has_add_permission(self, request):
