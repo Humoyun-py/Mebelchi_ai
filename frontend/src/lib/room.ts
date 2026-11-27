@@ -72,12 +72,21 @@ export const nextRotation = (r: Rot): Rot => ((r + 90) % 360) as Rot
 export const wallLength = (room: RoomSize, wall: Wall) => (wall === 'north' || wall === 'south' ? room.width : room.length)
 
 /** Starting values for the openings form: spread over the walls so the first suggestion is already valid for a typical room. */
-export function defaultOpenings(required: { doors: number; windows: number }, room: RoomSize): RoomOpening[] {
+export function defaultOpenings(required: { doors: number; windows: number }, room: RoomSize, margin = 100): RoomOpening[] {
+  // Defaults must always fit their wall (a short wall gets a narrower opening), so the first "Next" never fails for a reason the user did not cause.
+  const fit = (wall: Wall, offset: number, width: number) => {
+    const len = wallLength(room, wall)
+    const w = Math.max(300, Math.min(width, len - 2 * margin))
+    return { offset: Math.max(margin, Math.min(offset, len - margin - w)), width: w }
+  }
   const out: RoomOpening[] = []
-  for (let i = 0; i < required.doors; i++) out.push({ type: 'door', wall: i % 2 ? 'south' : 'north', offset: 500, width: 900, height: 2100, sill: 0 })
+  for (let i = 0; i < required.doors; i++) {
+    const wall: Wall = i % 2 ? 'south' : 'north'
+    out.push({ type: 'door', wall, ...fit(wall, 500, 900), height: 2100, sill: 0 })
+  }
   for (let i = 0; i < required.windows; i++) {
     const wall: Wall = i % 2 ? 'west' : 'east'
-    out.push({ type: 'window', wall, offset: Math.min(800 + 1500 * Math.floor(i / 2), Math.max(100, wallLength(room, wall) - 1300)), width: 1200, height: 1200, sill: 900 })
+    out.push({ type: 'window', wall, ...fit(wall, 800 + 1500 * Math.floor(i / 2), 1200), height: 1200, sill: 900 })
   }
   return out
 }

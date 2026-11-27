@@ -81,8 +81,22 @@ function Openings({ q, submit, busy, error }: { q: Question } & Omit<Props, 'flo
   const [rows, setRows] = useState<RoomOpening[]>(() => (Array.isArray(q.value) && q.value.length ? (q.value as RoomOpening[]) : defaultOpenings(q.required ?? { doors: 0, windows: 0 }, room)))
   const upd = (i: number, patch: Partial<RoomOpening>) => setRows((r) => r.map((o, j) => (j === i ? { ...o, ...patch } : o)))
   const nth = (i: number) => rows.slice(0, i + 1).filter((x) => x.type === rows[i].type).length
+  const margin = q.limits?.edge_margin ?? 100
+  // Checked here first, in the user's language and per opening; the server repeats the same rule (and stays the authority).
+  const problem = (o: RoomOpening): string | null => {
+    const len = q.wall_lengths?.[o.wall]
+    if (len == null) return null
+    if (o.offset < margin) return t('room.err.offsetMin').replace('{m}', String(margin))
+    if (o.offset + o.width > len - margin) {
+      const room = len - margin - o.offset
+      return room >= 300 ? t('room.err.fitWidth').replace('{max}', String(room)).replace('{len}', String(len)) : t('room.err.fitOffset').replace('{len}', String(len)).replace('{m}', String(margin))
+    }
+    return null
+  }
+  const serverFor = (i: number) => Object.entries(error?.fields ?? {}).filter(([k]) => k.startsWith(`openings.${i}.`)).map(([, v]) => v)[0]
+  const firstBad = rows.findIndex((o) => problem(o))
   return (
-    <form noValidate onSubmit={(e) => { e.preventDefault(); submit(q.step, rows) }} className="space-y-4">
+    <form noValidate onSubmit={(e) => { e.preventDefault(); if (firstBad >= 0) return; submit(q.step, rows) }} className="space-y-4">
       {rows.map((o, i) => {
         const n = nth(i); const lim = o.type === 'door' ? q.limits?.door : q.limits?.window; const len = q.wall_lengths?.[o.wall]
         return (
@@ -95,11 +109,13 @@ function Openings({ q, submit, busy, error }: { q: Question } & Omit<Props, 'flo
               <NumberField label={t('room.height')} value={o.height} onChange={(v) => upd(i, { height: v })} min={lim?.height[0]} max={lim?.height[1]} unit="mm" />
               {o.type === 'window' && <NumberField label={t('room.sill')} value={o.sill} onChange={(v) => upd(i, { sill: v })} min={0} max={q.limits?.window.sill[1]} unit="mm" />}
             </div>
+            {(problem(o) ?? serverFor(i)) && <p role="alert" className="mt-3 text-sm text-danger">{problem(o) ?? serverFor(i)}</p>}
           </fieldset>
         )
       })}
-      {error && <p role="alert" className="text-sm text-danger">{Object.values(error.fields)[0] ?? error.message}</p>}
-      <Button type="submit" loading={busy}>{t('room.next')}</Button>
+      {error && !Object.keys(error.fields).some((k) => k.startsWith('openings.')) && <p role="alert" className="text-sm text-danger">{Object.values(error.fields)[0] ?? error.message}</p>}
+      {firstBad >= 0 && <p className="text-sm text-muted">{t('room.err.fixAbove')}</p>}
+      <Button type="submit" loading={busy} disabled={firstBad >= 0}>{t('room.next')}</Button>
     </form>
   )
 }

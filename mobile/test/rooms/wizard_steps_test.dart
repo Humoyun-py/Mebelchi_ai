@@ -91,4 +91,31 @@ void main() {
     expect((list[1] as Map)['type'], 'window');
     expect((list[1] as Map)['sill'], 900);
   });
+
+  testWidgets('OpeningsStep narrows defaults to a short wall and explains an overflow instead of submitting', (t) async {
+    Object? got;
+    final q = {
+      'required': {'doors': 0, 'windows': 1},
+      'walls': [{'id': 'north', 'label': {'en': 'North'}}],
+      'wall_lengths': {'north': 1000},
+      'limits': {'door': {'width': [700, 1200], 'height': [1900, 2300]}, 'window': {'width': [400, 3000], 'height': [400, 2000], 'sill': [0, 1500]}, 'edge_margin': 100},
+      'value': null,
+    };
+    await _pump(t, OpeningsStep(question: q, onSubmit: (v) async => got = v, busy: false));
+    await t.ensureVisible(find.text('Continue'));
+    await t.tap(find.text('Continue'));
+    await t.pump();
+    final w = (got as List).single as Map; // the default 1200 mm window was narrowed to fit the 1000 mm wall with 100 mm margins
+    expect(w['width'], 800);
+    expect(w['offset'], 100);
+
+    got = null;
+    final fields = find.byType(TextFormField);
+    await t.enterText(fields.at(1), '1200'); // width field of the single opening
+    await t.ensureVisible(find.text('Continue'));
+    await t.tap(find.text('Continue'));
+    await t.pump();
+    expect(got, isNull);
+    expect(find.textContaining('1000 mm'), findsWidgets);
+  });
 }

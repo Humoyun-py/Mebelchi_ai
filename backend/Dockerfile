@@ -4,7 +4,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-RUN useradd -r -u 10001 app && mkdir -p /app/media /app/staticfiles && chown -R app /app
+RUN useradd -r -m -d /home/app -u 10001 app && mkdir -p /app/media /app/staticfiles && chown -R app /app
 USER app
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

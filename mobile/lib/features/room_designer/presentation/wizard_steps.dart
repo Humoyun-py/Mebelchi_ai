@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/l10n/strings.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_button.dart';
@@ -273,11 +274,20 @@ class _OpeningsStepState extends ConsumerState<OpeningsStep> {
     final door = asJson(limits['door']);
     final win = asJson(limits['window']);
     final saved = asJsonList(widget.question['value']);
+    final lens = asJson(widget.question['wall_lengths']);
+    final margin = ((limits['edge_margin'] as num?) ?? 100).round();
+    // Defaults must fit their wall: a short wall gets a narrower opening and an offset inside the margins.
+    ({int offset, int width}) fit(String wall, int offset, int width) {
+      final len = ((lens[wall] as num?) ?? 100000).round();
+      final w = width.clamp(300, len - 2 * margin < 300 ? 300 : len - 2 * margin).toInt();
+      final maxOff = len - margin - w;
+      return (offset: offset.clamp(margin, maxOff < margin ? margin : maxOff).toInt(), width: w);
+    }
     _drafts = saved.isNotEmpty
         ? [for (final o in saved) _OpeningDraft(type: o['type'] as String, wall: o['wall'] as String, offset: (o['offset'] as num).round(), width: (o['width'] as num).round(), height: (o['height'] as num).round(), sill: ((o['sill'] ?? 0) as num).round())]
         : [
-            for (var i = 0; i < ((req['doors'] as num?) ?? 0); i++) _OpeningDraft(type: 'door', wall: 'south', offset: 300 + i * 1200, width: _clamp(900, door['width'] as List?), height: _clamp(2100, door['height'] as List?), sill: 0),
-            for (var i = 0; i < ((req['windows'] as num?) ?? 0); i++) _OpeningDraft(type: 'window', wall: 'north', offset: 300 + i * 1600, width: _clamp(1200, win['width'] as List?), height: _clamp(1200, win['height'] as List?), sill: _clamp(900, win['sill'] as List?)),
+            for (var i = 0; i < ((req['doors'] as num?) ?? 0); i++) _OpeningDraft(type: 'door', wall: 'south', offset: fit('south', 300 + i * 1200, _clamp(900, door['width'] as List?)).offset, width: fit('south', 300 + i * 1200, _clamp(900, door['width'] as List?)).width, height: _clamp(2100, door['height'] as List?), sill: 0),
+            for (var i = 0; i < ((req['windows'] as num?) ?? 0); i++) _OpeningDraft(type: 'window', wall: 'north', offset: fit('north', 300 + i * 1600, _clamp(1200, win['width'] as List?)).offset, width: fit('north', 300 + i * 1600, _clamp(1200, win['width'] as List?)).width, height: _clamp(1200, win['height'] as List?), sill: _clamp(900, win['sill'] as List?)),
           ];
     _ctrls = [
       for (final d in _drafts) [for (final v in [d.offset, d.width, d.height, d.sill]) TextEditingController(text: '$v')]
@@ -292,6 +302,21 @@ class _OpeningsStepState extends ConsumerState<OpeningsStep> {
       }
     }
     super.dispose();
+  }
+
+  /// Same rule as the server (`edge_margin` from the question), shown per opening in the user's language before anything is sent.
+  String? _fitProblem(S s, int i) {
+    final offset = int.tryParse(_ctrls[i][0].text.trim());
+    final width = int.tryParse(_ctrls[i][1].text.trim());
+    final len = (asJson(widget.question['wall_lengths'])[_drafts[i].wall] as num?)?.round();
+    if (offset == null || width == null || len == null) return null;
+    final margin = ((asJson(widget.question['limits'])['edge_margin'] as num?) ?? 100).round();
+    if (offset < margin) return s.f('rd.err.offsetMin', {'m': '$margin'});
+    if (offset + width > len - margin) {
+      final room = len - margin - offset;
+      return room >= 300 ? s.f('rd.err.fitWidth', {'max': '$room', 'len': '$len'}) : s.f('rd.err.fitOffset', {'len': '$len', 'm': '$margin'});
+    }
+    return null;
   }
 
   void _go() {
@@ -316,6 +341,7 @@ class _OpeningsStepState extends ConsumerState<OpeningsStep> {
     String? intCheck(String? v) => int.tryParse((v ?? '').trim()) == null ? s.t('rd.wholeNumber') : null;
     return Form(
       key: _form,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         for (var i = 0; i < _drafts.length; i++) ...[
           Card(
@@ -332,13 +358,18 @@ class _OpeningsStepState extends ConsumerState<OpeningsStep> {
                   initialValue: _drafts[i].wall,
                   decoration: InputDecoration(labelText: s.t('rd.wall')),
                   items: [for (final w in walls) DropdownMenuItem(value: w['id'] as String, child: Text('${loc(w['label'], lang)}${lengths[w['id']] == null ? '' : ' (${(lengths[w['id']] as num).round()} mm)'}'))],
-                  onChanged: widget.busy ? null : (v) => setState(() => _drafts[i].wall = v ?? _drafts[i].wall),
+                  onChanged: widget.busy
+                      ? null
+                      : (v) => setState(() {
+                            _drafts[i].wall = v ?? _drafts[i].wall;
+                            _form.currentState?.validate();
+                          }),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(controller: _ctrls[i][0], keyboardType: TextInputType.number, decoration: InputDecoration(labelText: '${s.t('rd.offset')} (mm)'), validator: intCheck),
+                TextFormField(controller: _ctrls[i][0], keyboardType: TextInputType.number, decoration: InputDecoration(labelText: '${s.t('rd.offset')} (mm)'), validator: (v) => intCheck(v) ?? _fitProblem(s, i)),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(child: TextFormField(controller: _ctrls[i][1], keyboardType: TextInputType.number, decoration: InputDecoration(labelText: '${s.t('rd.width')} (mm)'), validator: intCheck)),
+                  Expanded(child: TextFormField(controller: _ctrls[i][1], keyboardType: TextInputType.number, decoration: InputDecoration(labelText: '${s.t('rd.width')} (mm)'), validator: (v) => intCheck(v) ?? _fitProblem(s, i))),
                   const SizedBox(width: 12),
                   Expanded(child: TextFormField(controller: _ctrls[i][2], keyboardType: TextInputType.number, decoration: InputDecoration(labelText: '${s.t('rd.height')} (mm)'), validator: intCheck)),
                 ]),

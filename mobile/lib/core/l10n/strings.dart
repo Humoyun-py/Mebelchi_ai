@@ -332,6 +332,9 @@ const _uz = {
   'order.action.delivered': 'Yakunlash',
   'order.status.cancelled': 'Bekor qilingan',
   'order.action.cancelled': 'Bekor qilish',
+  'rd.err.offsetMin': 'Devor chetidan kamida {m} mm uzoqroqqa suring.',
+  'rd.err.fitWidth': 'Bu o\'rin {len} mm li devorga sig\'maydi. Eni ko\'pi bilan {max} mm bo\'lsin yoki boshiga yaqinroq suring.',
+  'rd.err.fitOffset': 'Bu devor atigi {len} mm, shuning uchun {m} mm chekinish bilan o\'rin sig\'maydi. Uzunroq devorni tanlang yoki o\'rinni toraytiring.',
 };
 
 const _ru = {
@@ -620,6 +623,9 @@ const _ru = {
   'order.action.delivered': 'Завершить',
   'order.status.cancelled': 'Отменён',
   'order.action.cancelled': 'Отменить',
+  'rd.err.offsetMin': 'Отодвиньте не менее чем на {m} мм от края стены.',
+  'rd.err.fitWidth': 'Проём не помещается на стене {len} мм. Сделайте ширину не более {max} мм или сдвиньте ближе к началу.',
+  'rd.err.fitOffset': 'Стена всего {len} мм, поэтому проём не поместится с отступом {m} мм. Выберите более длинную стену или сделайте проём уже.',
 };
 
 const _en = {
@@ -908,6 +914,9 @@ const _en = {
   'order.action.delivered': 'Complete',
   'order.status.cancelled': 'Cancelled',
   'order.action.cancelled': 'Cancel',
+  'rd.err.offsetMin': 'Move it at least {m} mm away from the wall end.',
+  'rd.err.fitWidth': 'This opening does not fit the {len} mm wall. Make it at most {max} mm wide, or move it closer to the start.',
+  'rd.err.fitOffset': 'This wall is only {len} mm long, so the opening cannot fit with {m} mm of margin. Choose a longer wall or make the opening narrower.',
 };
 
 final Map<String, Map<String, String>> _data = {'uz': _uz, 'ru': _ru, 'en': _en};
