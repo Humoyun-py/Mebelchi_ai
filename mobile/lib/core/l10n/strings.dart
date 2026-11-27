@@ -72,7 +72,7 @@ const _uz = {
   'pr.count.designs': 'Dizaynlar',
   'pr.count.images': 'Rasmlar',
   'pr.count.files': 'Fayllar',
-  'pr.countsNote': 'Hisob-kitob va kesish ro\'yxatlarini hozircha veb-versiyada yaratish mumkin.',
+  'pr.countsNote': 'Hisob-kitob va kesish ro\'yxatini «Kalkulyator» orqali loyihaga qo\'shishingiz mumkin.',
   'nav.catalog': 'Katalog',
   'nav.rooms': 'Dizaynlar',
   'rd.title': 'Xona dizaynlari',
@@ -225,7 +225,7 @@ const _uz = {
   'home.phoneVerifyAction': 'Tasdiqlash',
   'home.serverOk': 'Server bilan aloqa bor',
   'home.noteTitle': 'Ilova rivojlanmoqda',
-  'home.noteBody': "Hozircha kirish, profil va xavfsizlik tayyor. Boshqa bo'limlar keyingi yangilanishlarda qo'shiladi.",
+  'home.noteBody': 'Katalog, dizayn, loyihalar va kalkulyator tayyor. Buyurtmalar va boshqa bo\'limlar keyingi yangilanishlarda qo\'shiladi.',
   'profile.title': 'Profil',
   'profile.edit': 'Ma\'lumotlarni tahrirlash',
   'profile.saved': 'Saqlandi',
@@ -291,6 +291,8 @@ const _uz = {
   'calc.backToProject': 'Loyihaga qaytish',
   'home.calculator': 'Kalkulyator',
   'pr.calculate': 'Shu loyiha uchun hisoblash',
+  'cat.cat.cabinet': 'Shkaf',
+  'cat.cat.other': 'Boshqa',
 };
 
 const _ru = {
@@ -319,7 +321,7 @@ const _ru = {
   'pr.count.designs': 'Дизайны',
   'pr.count.images': 'Изображения',
   'pr.count.files': 'Файлы',
-  'pr.countsNote': 'Расчёты и карты раскроя пока создаются в веб-версии.',
+  'pr.countsNote': 'Расчёт и карту раскроя можно добавить в проект через «Калькулятор».',
   'nav.catalog': 'Каталог',
   'nav.rooms': 'Дизайны',
   'rd.title': 'Дизайны комнат',
@@ -472,7 +474,7 @@ const _ru = {
   'home.phoneVerifyAction': 'Подтвердить',
   'home.serverOk': 'Связь с сервером есть',
   'home.noteTitle': 'Приложение развивается',
-  'home.noteBody': 'Сейчас готовы вход, профиль и безопасность. Остальные разделы появятся в следующих обновлениях.',
+  'home.noteBody': 'Каталог, дизайн, проекты и калькулятор готовы. Заказы и остальные разделы появятся в следующих обновлениях.',
   'profile.title': 'Профиль',
   'profile.edit': 'Изменить данные',
   'profile.saved': 'Сохранено',
@@ -538,6 +540,8 @@ const _ru = {
   'calc.backToProject': 'Вернуться к проекту',
   'home.calculator': 'Калькулятор',
   'pr.calculate': 'Рассчитать для этого проекта',
+  'cat.cat.cabinet': 'Шкаф',
+  'cat.cat.other': 'Другое',
 };
 
 const _en = {
@@ -566,7 +570,7 @@ const _en = {
   'pr.count.designs': 'Designs',
   'pr.count.images': 'Images',
   'pr.count.files': 'Files',
-  'pr.countsNote': 'Calculations and cutting lists can be created in the web app for now.',
+  'pr.countsNote': 'Add a calculation and cutting list to a project with the Calculator.',
   'nav.catalog': 'Catalogue',
   'nav.rooms': 'Designs',
   'rd.title': 'Room designs',
@@ -719,7 +723,7 @@ const _en = {
   'home.phoneVerifyAction': 'Verify',
   'home.serverOk': 'Connected to the server',
   'home.noteTitle': 'The app is growing',
-  'home.noteBody': 'Sign-in, profile and security are ready. Other sections arrive in later updates.',
+  'home.noteBody': 'Catalogue, designs, projects and the calculator are ready. Orders and other sections arrive in later updates.',
   'profile.title': 'Profile',
   'profile.edit': 'Edit details',
   'profile.saved': 'Saved',
@@ -785,6 +789,8 @@ const _en = {
   'calc.backToProject': 'Back to project',
   'home.calculator': 'Calculator',
   'pr.calculate': 'Calculate for this project',
+  'cat.cat.cabinet': 'Cabinet',
+  'cat.cat.other': 'Other',
 };
 
 final Map<String, Map<String, String>> _data = {'uz': _uz, 'ru': _ru, 'en': _en};
