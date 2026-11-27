@@ -57,6 +57,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       # nginx overwrites X-Real-IP with the real peer address; the backend port is not published, so the header cannot be forged.
       AUDIT_IP_HEADER: HTTP_X_REAL_IP
+      # APK downloads are handed to nginx (X-Accel-Redirect) so a slow phone never ties up a gunicorn worker
+      RELEASES_X_ACCEL_PREFIX: /_protected/releases/
     volumes:
       - media:/app/media
       - static:/app/staticfiles
@@ -86,6 +88,7 @@ services:
       - "${WEB_PORT:-80}:80"
     volumes:
       - static:/var/www/static:ro
+      - media:/var/www/media:ro   # only /_protected/releases/ (internal) reads from it; /media/ stays 404
     depends_on:
       - backend
     restart: unless-stopped

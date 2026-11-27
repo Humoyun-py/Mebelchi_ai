@@ -1322,6 +1322,63 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/v1/app/android/:
+    get:
+      operationId: app_android_retrieve
+      description: 'Public: the latest published Android build and the version history.
+        Nothing is listed until an administrator publishes a build.'
+      tags:
+      - app
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/app/android/{code}/download/:
+    get:
+      operationId: app_android_download_retrieve
+      description: 'Public: the APK itself (`latest` or a version code). The file
+        is private media served here, never by nginx.'
+      parameters:
+      - in: path
+        name: code
+        schema:
+          type: integer
+        required: true
+      tags:
+      - app
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/app/android/latest/download/:
+    get:
+      operationId: app_android_latest_download_retrieve
+      description: 'Public: the APK itself (`latest` or a version code). The file
+        is private media served here, never by nginx.'
+      tags:
+      - app
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/v1/auth/config/:
     get:
       operationId: auth_config_retrieve
@@ -5809,6 +5866,60 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/users/me/phone/confirm/:
+    post:
+      operationId: users_me_phone_confirm_create
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneConfirmInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneConfirmInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneConfirmInput'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/users/me/phone/request/:
+    post:
+      operationId: users_me_phone_request_create
+      description: 'Send an SMS code to the given number (default: the number on the
+        profile). 503 when SMS is not configured on the server.'
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneInput'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/users/me/role/:
     post:
       operationId: users_me_role_create
@@ -7065,12 +7176,14 @@ components:
           nullable: true
         sheet_length:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         sheet_width:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         kerf:
           type: string
           format: decimal
@@ -7127,8 +7240,9 @@ components:
           pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
         quantity:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         material:
           type: string
           maxLength: 40
@@ -7136,12 +7250,14 @@ components:
           type: boolean
         edge_w:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         edge_h:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         edge_note:
           type: string
           maxLength: 120
@@ -7412,8 +7528,9 @@ components:
           maxLength: 300
         status_code:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
         created_at:
           type: string
@@ -7466,12 +7583,14 @@ components:
           pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
         sheet_length:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         sheet_width:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         price_per_sheet:
           type: string
           format: decimal
@@ -7606,12 +7725,14 @@ components:
       - cash
       - bank_transfer
       - card
+      - provider
       - other
       type: string
       description: |-
         * `cash` - Cash
         * `bank_transfer` - Bank transfer
         * `card` - Card (paid outside the platform)
+        * `provider` - Payment provider (verified webhook)
         * `other` - Other
     Notification:
       type: object
@@ -8618,12 +8739,14 @@ components:
           nullable: true
         sheet_length:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         sheet_width:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         kerf:
           type: string
           format: decimal
@@ -8770,12 +8893,14 @@ components:
           pattern: ^-?\d{0,4}(?:\.\d{0,1})?$
         sheet_length:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         sheet_width:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         price_per_sheet:
           type: string
           format: decimal
@@ -8985,20 +9110,23 @@ components:
           nullable: true
         width:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
           description: mm
         height:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
           description: mm
         depth:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
           description: mm
         thickness:
@@ -9158,8 +9286,9 @@ components:
           maxLength: 120
         lead_time_days:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
         is_available:
           type: boolean
@@ -9214,6 +9343,9 @@ components:
         phone:
           type: string
           maxLength: 32
+        phone_verified:
+          type: string
+          readOnly: true
         avatar_url:
           type: string
           readOnly: true
@@ -9331,8 +9463,9 @@ components:
           nullable: true
         delivery_radius_km:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
           description: Empty = no limit stated
         categories:
@@ -9342,15 +9475,17 @@ components:
           maxLength: 120
         max_active_orders:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 1
+          format: int64
           description: 'Capacity: orders in progress at once'
         is_accepting_orders:
           type: boolean
         lead_time_days:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 1
+          format: int64
         price_list:
           description: Board / hardware / labour prices in the calculation engine's
             PriceList format
@@ -9480,6 +9615,23 @@ components:
         * `partially_paid` - Partially paid
         * `paid` - Paid
         * `refunded` - Refunded
+    PhoneConfirmInput:
+      type: object
+      properties:
+        phone:
+          type: string
+          maxLength: 32
+        code:
+          type: string
+          maxLength: 12
+      required:
+      - code
+    PhoneInput:
+      type: object
+      properties:
+        phone:
+          type: string
+          maxLength: 32
     Plan:
       type: object
       properties:
@@ -9496,17 +9648,20 @@ components:
           pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
         storage_mb:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
         max_projects:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           description: 0 = unlimited
         max_exports_per_month:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           description: 0 = unlimited
         features: {}
       required:
@@ -9602,20 +9757,23 @@ components:
           nullable: true
         width:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
           description: mm
         height:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
           description: mm
         depth:
           type: integer
-          maximum: 2147483647
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
           description: mm
         thickness:
@@ -10068,8 +10226,9 @@ components:
           maxLength: 120
         lead_time_days:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
         is_available:
           type: boolean
@@ -10180,6 +10339,9 @@ components:
         phone:
           type: string
           maxLength: 32
+        phone_verified:
+          type: string
+          readOnly: true
         avatar_url:
           type: string
           readOnly: true
@@ -10214,6 +10376,7 @@ components:
       - id
       - is_admin
       - last_name
+      - phone_verified
       - role
       - role_selected
     UserFile:
@@ -10344,8 +10507,9 @@ components:
           nullable: true
         delivery_radius_km:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 0
+          format: int64
           nullable: true
           description: Empty = no limit stated
         categories:
@@ -10355,15 +10519,17 @@ components:
           maxLength: 120
         max_active_orders:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 1
+          format: int64
           description: 'Capacity: orders in progress at once'
         is_accepting_orders:
           type: boolean
         lead_time_days:
           type: integer
-          maximum: 32767
+          maximum: 9223372036854775807
           minimum: 1
+          format: int64
         price_list:
           description: Board / hardware / labour prices in the calculation engine's
             PriceList format

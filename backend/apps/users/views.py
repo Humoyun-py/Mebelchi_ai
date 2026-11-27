@@ -1,7 +1,7 @@
 from django.http import FileResponse, Http404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics, status
+from rest_framework import generics, serializers, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -11,7 +11,9 @@ from django.utils import timezone
 
 from apps.audit import services as audit
 from apps.core.signing import verify_file
+from apps.core.throttles import SmsRateThrottle
 
+from . import phone as phone_service
 from .models import User
 from .serializers import AvatarSerializer, PasswordChangeSerializer, RoleSerializer, UserSerializer
 
@@ -111,3 +113,35 @@ class StorageView(APIView):
     def get(self, request):
         from apps.files.services import storage_summary
         return Response(storage_summary(request.user))
+
+
+class PhoneInput(serializers.Serializer):
+    phone = serializers.CharField(max_length=32, required=False, allow_blank=True)
+
+
+class PhoneConfirmInput(serializers.Serializer):
+    phone = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    code = serializers.CharField(max_length=12)
+
+
+class PhoneRequestView(APIView):
+    """Send an SMS code to the given number (default: the number on the profile). 503 when SMS is not configured on the server."""
+
+    throttle_classes = [SmsRateThrottle]
+
+    @extend_schema(request=PhoneInput, responses=OpenApiTypes.OBJECT)
+    def post(self, request):
+        s = PhoneInput(data=request.data)
+        s.is_valid(raise_exception=True)
+        raw = s.validated_data.get("phone") or request.user.phone
+        return Response(phone_service.request_code(request.user, raw))
+
+
+class PhoneConfirmView(APIView):
+    @extend_schema(request=PhoneConfirmInput, responses=UserSerializer)
+    def post(self, request):
+        s = PhoneConfirmInput(data=request.data)
+        s.is_valid(raise_exception=True)
+        raw = s.validated_data.get("phone") or request.user.phone
+        user = phone_service.confirm_code(request.user, raw, s.validated_data["code"])
+        return Response(UserSerializer(user).data)
