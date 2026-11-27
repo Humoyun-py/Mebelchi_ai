@@ -1,7 +1,24 @@
-# Render Blueprint: backend only, free plans. Dashboard -> New -> Blueprint -> pick this repository.
+# Render Blueprint: backend + web (static site), free plans. Dashboard -> New -> Blueprint -> pick this repository.
 # Free limits: the web service sleeps after ~15 min idle (first request takes ~1 min), uploaded files are NOT kept across
 # restarts, and the free PostgreSQL database expires after 30 days. Fine for a demo / testing, not for real users.
 services:
+  - type: web
+    name: mebelchi-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+    routes:
+      # The browser only ever talks to this site; Render forwards /api to the backend (same origin: no CORS, relative file links keep working).
+      - type: rewrite
+        source: /api/*
+        destination: https://mebelchi-backend.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
   - type: web
     name: mebelchi-backend
     runtime: docker
@@ -17,9 +34,13 @@ services:
       - key: DJANGO_ALLOWED_HOSTS
         value: ".onrender.com"
       - key: CORS_ALLOWED_ORIGINS
-        value: "http://localhost:5173"
+        value: "https://mebelchi-web.onrender.com,http://localhost:5173"
       - key: CSRF_TRUSTED_ORIGINS
         value: "https://*.onrender.com"
+      - key: FRONTEND_URL
+        value: "https://mebelchi-web.onrender.com"
+      - key: THROTTLE_AUTH
+        value: "60/min"   # all web users reach the API through one Render proxy address
       - key: DB_ENGINE
         value: postgresql
       - key: POSTGRES_DB
