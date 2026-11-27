@@ -234,13 +234,13 @@ class _CalculatorScreenState extends ConsumerState<CalculatorScreen> {
           ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            title: Text('${p.name} × ${p.quantity}'),
+            title: Text('${s.engineName(p.name)} × ${p.quantity}'),
             subtitle: Text('${_n(p.width)} × ${_n(p.height)} × ${_n(p.thickness)} mm · ${p.material}'),
           ),
         const SizedBox(height: AppSpacing.sm),
         _Title(s.t('calc.hardware')),
         for (final h in r.hardware)
-          ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text('${h.name} × ${h.quantity}'), subtitle: h.note.isEmpty ? null : Text(h.note)),
+          ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text('${s.engineName(h.name)} × ${h.quantity}'), subtitle: h.note.isEmpty ? null : Text(h.note)),
         const SizedBox(height: AppSpacing.sm),
         _Section(title: s.t('calc.assumptions'), icon: LucideIcons.info, color: AppColors.textMuted, lines: r.assumptions),
         const SizedBox(height: AppSpacing.md),

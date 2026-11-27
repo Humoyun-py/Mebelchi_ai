@@ -142,6 +142,24 @@ class ApiTests(RoomApiBase):
         self.assertEqual((r.status_code, r.content[:4]), (200, b"glTF"))
         self.assertEqual(self.cb.get(f"{URL}{rid}/export-glb/").status_code, 404)
 
+    def test_cutaway_glb_drops_the_ceiling_and_front_walls_but_keeps_floor_and_furniture(self):
+        from apps.rooms import services
+        from apps.rooms.models import RoomFlow
+        rid = self.built()
+        full = services.model(RoomFlow.objects.get(pk=rid))["boxes"]
+        cut = services.cutaway(full)
+        names = [b["name"] for b in cut]
+        self.assertFalse(any(b["kind"] == "ceiling" for b in cut))
+        self.assertFalse(any(n.startswith(("Wall south", "Wall east")) for n in names))
+        self.assertTrue({"Wall north", "Wall west"} <= {n.split(" (")[0] for n in names})
+        self.assertTrue(any(b["kind"] == "floor" for b in cut) and any(b.get("item") for b in cut))
+        self.assertLess(len(cut), len(full))
+        whole = self.ca.get(f"{URL}{rid}/export-glb/").content
+        part = self.ca.get(f"{URL}{rid}/export-glb/?cutaway=1")
+        self.assertEqual((part.status_code, part.content[:4]), (200, b"glTF"))
+        self.assertLess(len(part.content), len(whole))
+        self.assertEqual(self.cb.get(f"{URL}{rid}/export-glb/?cutaway=1").status_code, 404)
+
     def test_settings_change_colours_light_camera_and_floor_material(self):
         rid = self.built()
         r = self.ca.patch(f"{URL}{rid}/settings/", {"wall": "#ffffff", "floor": "#222222", "floor_material": "tile", "light": {"intensity": 1.4, "warm": True},

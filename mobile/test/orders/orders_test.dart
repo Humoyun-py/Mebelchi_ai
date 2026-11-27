@@ -42,6 +42,12 @@ void main() {
     }
   });
 
+  test('action buttons: forward steps first, reject next, cancel last', () {
+    expect(sortedActions(['cancelled', 'confirmed', 'rejected']), ['confirmed', 'rejected', 'cancelled']);
+    expect(sortedActions(['cancelled', 'in_production', 'ready', 'quality_check']), ['in_production', 'quality_check', 'ready', 'cancelled']);
+    expect(sortedActions(['zzz', 'cancelled']), ['cancelled', 'zzz']);
+  });
+
   test('WorkshopOrder parses the allowed moves and tolerates missing money fields (employees)', () {
     final o = WorkshopOrder.fromJson(row());
     expect(o.waitingForAnswer, isTrue);

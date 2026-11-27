@@ -92,6 +92,15 @@ def orders_keyboard(orders: list[dict], lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+ORDER_ACTION_PRIORITY = ["confirmed", "in_production", "quality_check", "ready", "delivery", "delivered", "rejected", "cancelled"]
+
+
+def sorted_order_statuses(allowed: list[str]) -> list[str]:
+    """Forward steps first, reject next, cancel last (the server lists the allowed moves alphabetically)."""
+    rank = {s: i for i, s in enumerate(ORDER_ACTION_PRIORITY)}
+    return sorted(allowed, key=lambda s: rank.get(s, len(rank)))
+
+
 def _order_action(status: str) -> str:
     return {"confirmed": "acc", "rejected": "rej"}.get(status, f"to_{status}")
 
@@ -99,6 +108,6 @@ def _order_action(status: str) -> str:
 def order_actions_keyboard(order: dict, lang: str) -> InlineKeyboardMarkup:
     """One button per move the server says is allowed (the bot never decides what is allowed)."""
     rows = [[InlineKeyboardButton(text=t(f"order_btn_{s}", lang), callback_data=OrderAct(action=_order_action(s), order_id=order["id"]).pack())]
-            for s in order.get("allowed_next_statuses", [])]
+            for s in sorted_order_statuses(order.get("allowed_next_statuses", []))]
     rows.append([_button(t("btn_orders", lang), "orders")])
     return InlineKeyboardMarkup(inline_keyboard=rows)

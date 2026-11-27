@@ -120,8 +120,9 @@ class RoomFlowViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     @action(detail=True, methods=["get"], url_path="export-glb")
     @guarded
     def export_glb(self, request, pk=None):
-        """The 3D room as a standard GLB for other viewers (boxes with colours, no textures)."""
-        name, data = services.export_glb(request.user, int(pk))
+        """The 3D room as a standard GLB for other viewers (boxes with colours, no textures). `?cutaway=1` drops the ceiling and the two front walls
+        (what the in-app viewers show); the default export is the complete room."""
+        name, data = services.export_glb(request.user, int(pk), cut=request.query_params.get("cutaway") in ("1", "true"))
         return HttpResponse(data, content_type="model/gltf-binary", headers={"Content-Disposition": 'attachment; filename="room.glb"'})
 
     @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)

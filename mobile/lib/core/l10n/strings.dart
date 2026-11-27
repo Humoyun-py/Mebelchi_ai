@@ -18,6 +18,33 @@ class S {
     return s;
   }
 
+  /// A catalogue piece by its slug, in the interface language (the stored item name is English); [fallback] when the slug is unknown.
+  String templateName(String? slug, String fallback) => (slug == null ? null : (_data[lang]?['tpl.$slug'] ?? _data['en']!['tpl.$slug'])) ?? fallback;
+
+  /// Part and hardware names come from the calculation engine in English; known ones are shown in the interface language.
+  String engineName(String raw) {
+    final k = 'eng.${raw.toLowerCase()}';
+    final v = _data[lang]?[k] ?? _data['en']![k];
+    return v ?? raw;
+  }
+
+  /// Server messages that users meet often, translated; anything else is shown as the server wrote it.
+  String serverText(String raw) {
+    final rules = <RegExp, String>{
+      RegExp(r'^overlaps another item \((.*)\)$'): 'srv.overlap',
+      RegExp(r'^item must stay inside the room'): 'srv.outside',
+      RegExp(r'^this item does not fit anywhere in the room'): 'srv.nofit',
+      RegExp(r'^taller than the room \((\d+) mm\)$'): 'srv.taller',
+      RegExp(r'^at most (\d+) items$'): 'srv.maxItems',
+      RegExp(r'^SMS is not configured'): 'srv.sms',
+    };
+    for (final e in rules.entries) {
+      final m = e.key.firstMatch(raw);
+      if (m != null) return f(e.value, {'v': m.groupCount >= 1 ? (m.group(1) ?? '') : ''});
+    }
+    return raw;
+  }
+
   /// A user-facing message for a failure. Server text is shown only for validation and permission answers.
   String error(Object e) {
     final ex = AppException.from(e);
@@ -29,13 +56,16 @@ class S {
       case AppErrorKind.throttled:
         return t('err.throttled');
       case AppErrorKind.unavailable:
-        return ex.detail.isNotEmpty ? ex.detail : t('err.unavailable');
+        return ex.detail.isNotEmpty ? serverText(ex.detail) : t('err.unavailable');
       case AppErrorKind.server:
         return t('err.server');
       case AppErrorKind.unauthorized:
         return ex.detail.isNotEmpty ? ex.detail : t('err.session');
-      case AppErrorKind.forbidden:
       case AppErrorKind.validation:
+        // the field messages say what is wrong ("overlaps another item"); "Validation failed." alone does not
+        if (ex.fields.isNotEmpty) return ex.fields.values.expand((m) => m).map(serverText).join('\n');
+        return ex.detail.isNotEmpty ? serverText(ex.detail) : t('err.unknown');
+      case AppErrorKind.forbidden:
       case AppErrorKind.notFound:
         return ex.detail.isNotEmpty ? ex.detail : t('err.unknown');
       default:
@@ -336,6 +366,49 @@ const _uz = {
   'rd.err.fitWidth': 'Bu o\'rin {len} mm li devorga sig\'maydi. Eni ko\'pi bilan {max} mm bo\'lsin yoki boshiga yaqinroq suring.',
   'rd.err.fitOffset': 'Bu devor atigi {len} mm, shuning uchun {m} mm chekinish bilan o\'rin sig\'maydi. Uzunroq devorni tanlang yoki o\'rinni toraytiring.',
   'rd.err.overlap': 'Bu o\'rin shu devordagi boshqasi bilan ustma-ust tushadi (yoki {gap} mm dan yaqin). Boshqa devorni tanlang yoki suring.',
+  'srv.overlap': 'Bu mebel boshqasi ({v}) bilan ustma-ust tushadi. Boshqa joyga suring.',
+  'srv.outside': 'Mebel xona ichida qolishi kerak. Boshqa tomonga suring yoki o\'lchamini kichraytiring.',
+  'srv.nofit': 'Bu mebel xonaning hech bir joyiga sig\'maydi. Joy bo\'shating yoki kichikroq o\'lcham tanlang.',
+  'srv.taller': 'Mebel xonadan balandroq ({v} mm).',
+  'srv.maxItems': 'Ko\'pi bilan {v} ta mebel qo\'shish mumkin.',
+  'eng.adjustable leg': 'Sozlanadigan oyoq',
+  'eng.back panel': 'Orqa devor',
+  'eng.back panel fixing': 'Orqa devor mahkamlagichi',
+  'eng.bottom panel': 'Pastki panel',
+  'eng.confirmat screw': 'Konfirmat vint',
+  'eng.drawer back': 'Tortma orqasi',
+  'eng.drawer bottom': 'Tortma tubi',
+  'eng.drawer front': 'Tortma old qismi',
+  'eng.drawer inner front': 'Tortma ichki old qismi',
+  'eng.drawer side': 'Tortma yon qismi',
+  'eng.drawer slide (pair)': 'Tortma yo\'naltirgichi (juft)',
+  'eng.front top rail': 'Old yuqori planka',
+  'eng.handle': 'Tutqich',
+  'eng.hanging rail': 'Osish planka',
+  'eng.hinge': 'Ilgak (petlya)',
+  'eng.plinth': 'Tsokol',
+  'eng.rear top rail': 'Orqa yuqori planka',
+  'eng.shelf': 'Tokcha',
+  'eng.shelf pin': 'Tokcha tayanchi',
+  'eng.side panel': 'Yon panel',
+  'eng.sliding roller set': 'Surma g\'ildirak to\'plami',
+  'eng.sliding track (bottom)': 'Surma yo\'l (pastki)',
+  'eng.sliding track (top)': 'Surma yo\'l (yuqori)',
+  'eng.top panel': 'Yuqori panel',
+  'eng.wall hanging bracket': 'Devorga osish kronshteyni',
+  'eng.door': 'Eshik',
+  'eng.sliding door': 'Surma eshik',
+  'tpl.base-cabinet': 'Pastki shkaf',
+  'tpl.wall-cabinet': 'Osma shkaf',
+  'tpl.drawer-base': 'Yashikli pastki shkaf',
+  'tpl.wardrobe-2door': 'Ikki eshikli kiyim shkafi',
+  'tpl.wardrobe-3door': 'Uch eshikli kiyim shkafi',
+  'tpl.tv-unit': 'TV tumba',
+  'tpl.bedside': 'Karavot yonidagi tumba',
+  'tpl.dresser': 'Komod',
+  'tpl.bookcase': 'Kitob javoni',
+  'tpl.office-cabinet': 'Ofis shkafi',
+  'srv.sms': 'Serverda SMS yuborish sozlanmagan, shuning uchun telefon raqamini hozircha tasdiqlab bo\'lmaydi.',
 };
 
 const _ru = {
@@ -628,6 +701,49 @@ const _ru = {
   'rd.err.fitWidth': 'Проём не помещается на стене {len} мм. Сделайте ширину не более {max} мм или сдвиньте ближе к началу.',
   'rd.err.fitOffset': 'Стена всего {len} мм, поэтому проём не поместится с отступом {m} мм. Выберите более длинную стену или сделайте проём уже.',
   'rd.err.overlap': 'Проём пересекается с другим на этой же стене (или ближе {gap} мм). Выберите другую стену или сдвиньте.',
+  'srv.overlap': 'Мебель пересекается с другой ({v}). Сдвиньте её в другое место.',
+  'srv.outside': 'Мебель должна оставаться внутри комнаты. Сдвиньте её или уменьшите размер.',
+  'srv.nofit': 'Эта мебель нигде не помещается. Освободите место или выберите меньший размер.',
+  'srv.taller': 'Мебель выше комнаты ({v} мм).',
+  'srv.maxItems': 'Можно добавить не более {v} предметов.',
+  'eng.adjustable leg': 'Регулируемая ножка',
+  'eng.back panel': 'Задняя стенка',
+  'eng.back panel fixing': 'Крепёж задней стенки',
+  'eng.bottom panel': 'Нижняя панель',
+  'eng.confirmat screw': 'Конфирмат (евровинт)',
+  'eng.drawer back': 'Задняя стенка ящика',
+  'eng.drawer bottom': 'Дно ящика',
+  'eng.drawer front': 'Фасад ящика',
+  'eng.drawer inner front': 'Внутренняя передняя стенка ящика',
+  'eng.drawer side': 'Боковина ящика',
+  'eng.drawer slide (pair)': 'Направляющие ящика (пара)',
+  'eng.front top rail': 'Передняя верхняя царга',
+  'eng.handle': 'Ручка',
+  'eng.hanging rail': 'Навесная планка',
+  'eng.hinge': 'Петля',
+  'eng.plinth': 'Цоколь',
+  'eng.rear top rail': 'Задняя верхняя царга',
+  'eng.shelf': 'Полка',
+  'eng.shelf pin': 'Полкодержатель',
+  'eng.side panel': 'Боковая панель',
+  'eng.sliding roller set': 'Комплект роликов купе',
+  'eng.sliding track (bottom)': 'Направляющая купе (нижняя)',
+  'eng.sliding track (top)': 'Направляющая купе (верхняя)',
+  'eng.top panel': 'Верхняя панель',
+  'eng.wall hanging bracket': 'Навесной кронштейн',
+  'eng.door': 'Дверь',
+  'eng.sliding door': 'Раздвижная дверь',
+  'tpl.base-cabinet': 'Нижний шкаф',
+  'tpl.wall-cabinet': 'Навесной шкаф',
+  'tpl.drawer-base': 'Нижний шкаф с ящиками',
+  'tpl.wardrobe-2door': 'Шкаф с двумя дверями',
+  'tpl.wardrobe-3door': 'Шкаф с тремя дверями',
+  'tpl.tv-unit': 'ТВ-тумба',
+  'tpl.bedside': 'Прикроватная тумба',
+  'tpl.dresser': 'Комод',
+  'tpl.bookcase': 'Книжный шкаф',
+  'tpl.office-cabinet': 'Офисный шкаф',
+  'srv.sms': 'На сервере не настроена отправка SMS, поэтому номер телефона пока нельзя подтвердить.',
 };
 
 const _en = {
@@ -920,6 +1036,49 @@ const _en = {
   'rd.err.fitWidth': 'This opening does not fit the {len} mm wall. Make it at most {max} mm wide, or move it closer to the start.',
   'rd.err.fitOffset': 'This wall is only {len} mm long, so the opening cannot fit with {m} mm of margin. Choose a longer wall or make the opening narrower.',
   'rd.err.overlap': 'This opening overlaps another one on the same wall (or is closer than {gap} mm). Pick another wall or move it.',
+  'srv.overlap': 'This piece overlaps another one ({v}). Move it elsewhere.',
+  'srv.outside': 'The piece must stay inside the room. Move it or make it smaller.',
+  'srv.nofit': 'This piece does not fit anywhere in the room. Free some space or pick a smaller size.',
+  'srv.taller': 'The piece is taller than the room ({v} mm).',
+  'srv.maxItems': 'You can add at most {v} pieces.',
+  'eng.adjustable leg': 'Adjustable leg',
+  'eng.back panel': 'Back panel',
+  'eng.back panel fixing': 'Back panel fixing',
+  'eng.bottom panel': 'Bottom panel',
+  'eng.confirmat screw': 'Confirmat screw',
+  'eng.drawer back': 'Drawer back',
+  'eng.drawer bottom': 'Drawer bottom',
+  'eng.drawer front': 'Drawer front',
+  'eng.drawer inner front': 'Drawer inner front',
+  'eng.drawer side': 'Drawer side',
+  'eng.drawer slide (pair)': 'Drawer slide (pair)',
+  'eng.front top rail': 'Front top rail',
+  'eng.handle': 'Handle',
+  'eng.hanging rail': 'Hanging rail',
+  'eng.hinge': 'Hinge',
+  'eng.plinth': 'Plinth',
+  'eng.rear top rail': 'Rear top rail',
+  'eng.shelf': 'Shelf',
+  'eng.shelf pin': 'Shelf pin',
+  'eng.side panel': 'Side panel',
+  'eng.sliding roller set': 'Sliding roller set',
+  'eng.sliding track (bottom)': 'Sliding track (bottom)',
+  'eng.sliding track (top)': 'Sliding track (top)',
+  'eng.top panel': 'Top panel',
+  'eng.wall hanging bracket': 'Wall hanging bracket',
+  'eng.door': 'Door',
+  'eng.sliding door': 'Sliding door',
+  'tpl.base-cabinet': 'Base cabinet',
+  'tpl.wall-cabinet': 'Wall cabinet',
+  'tpl.drawer-base': 'Drawer base unit',
+  'tpl.wardrobe-2door': 'Two-door wardrobe',
+  'tpl.wardrobe-3door': 'Three-door wardrobe',
+  'tpl.tv-unit': 'TV unit',
+  'tpl.bedside': 'Bedside table',
+  'tpl.dresser': 'Dresser',
+  'tpl.bookcase': 'Bookcase',
+  'tpl.office-cabinet': 'Office cabinet',
+  'srv.sms': 'SMS is not set up on this server, so phone numbers cannot be verified yet.',
 };
 
 final Map<String, Map<String, String>> _data = {'uz': _uz, 'ru': _ru, 'en': _en};

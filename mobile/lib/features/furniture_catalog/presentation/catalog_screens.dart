@@ -100,11 +100,14 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(10),
                         leading: _Thumb(it),
-                        title: Text(it.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                        title: Text(s.templateName(it.slug, it.name), style: const TextStyle(fontWeight: FontWeight.w700)),
                         subtitle: Text([it.dimensions, if (it.workshopName != null) it.workshopName!].join('\n')),
                         isThreeLine: it.workshopName != null,
                         trailing: Text(it.price == null ? s.t('cat.noPrice') : '${it.price} ${it.currency}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                        onTap: () => context.push('/catalog/${it.id}'),
+                        onTap: () {
+                          FocusScope.of(context).unfocus(); // otherwise the search field regains focus (and the keyboard) when the user comes back
+                          context.push('/catalog/${it.id}');
+                        },
                       ),
                     );
                   },
@@ -181,7 +184,7 @@ class FurnitureDetailScreen extends ConsumerWidget {
             else
               Center(child: _Thumb(it, size: 160)),
             const SizedBox(height: 16),
-            Text(it.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+            Text(s.templateName(it.slug, it.name), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
             Text(it.price == null ? s.t('cat.noPrice') : '${it.price} ${it.currency}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             if (!it.isAvailable) Padding(padding: const EdgeInsets.only(top: 4), child: Text(s.t('cat.unavailable'), style: const TextStyle(color: AppColors.danger))),
