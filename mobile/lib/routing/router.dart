@@ -11,6 +11,7 @@ import '../features/authentication/presentation/register_screen.dart';
 import '../features/authentication/presentation/role_screen.dart';
 import '../features/calculator/presentation/calculator_screen.dart';
 import '../features/dashboard/presentation/app_shell.dart';
+import '../features/workshop_orders/presentation/orders_screens.dart';
 import '../features/dashboard/presentation/home_screen.dart';
 import '../features/furniture_catalog/presentation/catalog_screens.dart';
 import '../features/profile/presentation/change_password_screen.dart';
@@ -58,6 +59,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/forgot', builder: (_, _) => const ForgotPasswordScreen()),
       GoRoute(path: '/role', builder: (_, _) => const RoleScreen()),
       GoRoute(path: '/calculator', builder: (_, st) => CalculatorScreen(projectId: int.tryParse(st.uri.queryParameters['project'] ?? ''))),
+      GoRoute(path: '/orders', builder: (_, _) => const OrdersScreen(), routes: [
+        GoRoute(path: ':id', builder: (_, st) => OrderDetailScreen(id: int.parse(st.pathParameters['id']!))),
+      ]),
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => AppShell(shell: shell),
         branches: [

@@ -59,6 +59,18 @@ class HomeScreen extends ConsumerWidget {
                   ]),
                 ),
               ),
+              if (user.role == UserRole.workshop) ...[
+                const SizedBox(height: AppSpacing.md),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(LucideIcons.packageOpen),
+                    title: Text(s.t('home.orders'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(s.t('home.orders.sub')),
+                    trailing: const Icon(LucideIcons.chevronRight),
+                    onTap: () => context.push('/orders'),
+                  ),
+                ),
+              ],
               const SizedBox(height: AppSpacing.md),
               Card(
                 child: ListTile(
