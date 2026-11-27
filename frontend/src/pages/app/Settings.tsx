@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, CreditCard, Globe, HardDrive, Lock, Moon, Palette, Sun, Trash2, User as UserIcon } from 'lucide-react'
+import { Bell, CreditCard, Globe, HardDrive, Lock, MessageCircle, Moon, Palette, Sun, Trash2, User as UserIcon } from 'lucide-react'
 import clsx from 'clsx'
 import { api, apiError } from '../../lib/api'
 import { fmtAgo, fmtBytes, fmtDate } from '../../lib/format'
@@ -16,8 +16,8 @@ import { FileUploader } from '../../components/ui/FileUploader'
 import { Tabs } from '../../components/ui/Tabs'
 import { toast } from '../../components/ui/Toast'
 
-type Tab = 'profile' | 'appearance' | 'language' | 'notifications' | 'security' | 'subscription' | 'storage'
-const TABS = [['profile', 'Profile', UserIcon], ['appearance', 'Appearance', Palette], ['language', 'Language', Globe], ['notifications', 'Notifications', Bell], ['security', 'Security', Lock], ['subscription', 'Subscription', CreditCard], ['storage', 'Storage', HardDrive]] as const
+type Tab = 'profile' | 'appearance' | 'language' | 'notifications' | 'telegram' | 'security' | 'subscription' | 'storage'
+const TABS = [['profile', 'Profile', UserIcon], ['appearance', 'Appearance', Palette], ['language', 'Language', Globe], ['notifications', 'Notifications', Bell], ['telegram', 'Telegram', MessageCircle], ['security', 'Security', Lock], ['subscription', 'Subscription', CreditCard], ['storage', 'Storage', HardDrive]] as const
 
 function useProfile() {
   const setUser = useAuth((s) => s.setUser)
@@ -123,12 +123,48 @@ function Storage() {
   )
 }
 
+interface TelegramStatus { linked: boolean; username: string; linked_at: string | null }
+interface LinkCode { code: string; expires_at: string; ttl_seconds: number }
+
+function Telegram() {
+  const qc = useQueryClient()
+  const { data, isLoading, isError } = useQuery({ queryKey: ['telegram-status'], queryFn: async () => (await api.get<TelegramStatus>('/telegram/status/')).data })
+  const [code, setCode] = useState<LinkCode | null>(null)
+  const gen = useMutation({ mutationFn: async () => (await api.post<LinkCode>('/telegram/link-code/')).data, onSuccess: (c) => setCode(c), onError: (e) => toast.error(apiError(e).message) })
+  const unlink = useMutation({ mutationFn: () => api.delete('/telegram/status/'), onSuccess: () => { setCode(null); toast.success('Telegram unlinked'); qc.invalidateQueries({ queryKey: ['telegram-status'] }) }, onError: (e) => toast.error(apiError(e).message) })
+  if (isLoading) return <Skeleton className="h-40" />
+  if (isError || !data) return <Card className="p-5"><p className="text-sm text-danger">Could not load the Telegram status. Try again later.</p></Card>
+  return (
+    <Card className="space-y-4 p-5">
+      <h3 className="font-semibold">Telegram bot</h3>
+      {data.linked ? (
+        <>
+          <p className="text-sm text-muted">Linked{data.username ? ` as @${data.username}` : ''}{data.linked_at ? ` on ${fmtDate(data.linked_at)}` : ''}. You can see orders and projects in the bot.</p>
+          <Button variant="secondary" loading={unlink.isPending} onClick={() => { if (window.confirm('Unlink this Telegram account?')) unlink.mutate() }}>Unlink Telegram</Button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted">Open the MEBELCHI AI bot in Telegram, press "Link account" and send the code below. The code works once and expires after a few minutes.</p>
+          {code ? (
+            <div className="rounded-xl border border-line p-4">
+              <p className="text-xs text-muted">Your link code</p>
+              <p className="num mt-1 text-2xl font-semibold tracking-widest">{code.code}</p>
+              <p className="mt-2 text-xs text-muted">Valid for {Math.round(code.ttl_seconds / 60)} minutes.</p>
+            </div>
+          ) : null}
+          <Button loading={gen.isPending} onClick={() => gen.mutate()}>{code ? 'Get a new code' : 'Get link code'}</Button>
+        </>
+      )}
+    </Card>
+  )
+}
+
 export default function SettingsPage() {
   const [params, setParams] = useSearchParams(); const initial = (params.get('tab') as Tab) || 'profile'; const [tab, setTab] = useState<Tab>(TABS.some((t) => t[0] === initial) ? initial : 'profile')
   useEffect(() => { const t = params.get('tab') as Tab | null; if (t && TABS.some((x) => x[0] === t)) setTab(t) }, [params])
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-8"><h1 className="text-2xl font-bold">Settings</h1>
       <div className="mt-5"><Tabs tabs={TABS.map(([id, label, I]) => ({ id, label, icon: <I size={15} /> }))} value={tab} onChange={(t) => { setTab(t); setParams({ tab: t }, { replace: true }) }} /></div>
-      <div className="mt-6">{{ profile: <Profile />, appearance: <Appearance />, language: <Language />, notifications: <Notifications />, security: <Security />, subscription: <Subscription />, storage: <Storage /> }[tab]}</div></div>
+      <div className="mt-6">{{ profile: <Profile />, appearance: <Appearance />, language: <Language />, notifications: <Notifications />, telegram: <Telegram />, security: <Security />, subscription: <Subscription />, storage: <Storage /> }[tab]}</div></div>
   )
 }
