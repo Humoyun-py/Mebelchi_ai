@@ -146,3 +146,6 @@ export interface AuditEntry {
   id: number; created_at: string; actor: number | null; actor_email: string; action: string; action_label: string; event: string; model: string
   object_id: string; object_repr: string; changes: Record<string, { old: unknown; new: unknown } | unknown>; ip: string | null; method: string; path: string
 }
+
+export interface AndroidRelease { version_name: string; version_code: number; sha256: string; size_bytes: number; notes: string; published_at: string | null; download_url: string }
+export interface AndroidReleases { latest: AndroidRelease | null; releases: AndroidRelease[] }

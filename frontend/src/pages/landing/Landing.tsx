@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ElementType, type ReactNode } from 'r
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ArrowRight, Boxes, Calculator, Check, ChevronDown, Cpu, FileSpreadsheet, Layers, Menu, PencilRuler, Scissors, Sofa, X } from 'lucide-react'
+import { ArrowRight, Boxes, Calculator, Check, ChevronDown, Cpu, FileSpreadsheet, Layers, Menu, PencilRuler, Scissors, Smartphone, Sofa, X } from 'lucide-react'
 import clsx from 'clsx'
 import { api } from '../../lib/api'
 import { useL, useT } from '../../lib/i18n'
@@ -29,6 +29,7 @@ function Nav() {
         <Logo />
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
           {links.map(([h, l]) => <a key={h} href={h} className="rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:text-fg">{l}</a>)}
+          <Link to="/android" className="rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:text-fg">{t('dl.nav')}</Link>
         </nav>
         <div className="flex items-center gap-1.5">
           <LanguageMenu />
@@ -42,6 +43,7 @@ function Nav() {
       </div>
       {open && <div className="border-t border-line px-4 pb-4 md:hidden">
         {links.map(([h, l]) => <a key={h} href={h} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm text-muted hover:bg-card2 hover:text-fg">{l}</a>)}
+        <Link to="/android" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm text-muted hover:bg-card2 hover:text-fg">{t('dl.nav')}</Link>
         <div className="mt-2 flex gap-2">{user ? <Link to="/app" className="flex-1"><Button className="w-full">{t('cta.open')}</Button></Link> : <>
           <Link to="/login" className="flex-1"><Button variant="secondary" className="w-full">{t('nav.login')}</Button></Link><Link to="/register" className="flex-1"><Button className="w-full">{t('nav.start')}</Button></Link></>}</div></div>}
     </header>
@@ -66,6 +68,7 @@ function Hero() {
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-wrap gap-3">
             <Link to={user ? '/app' : '/register'}><Button size="lg" icon={<ArrowRight size={18} />}>{t('hero.cta1')}</Button></Link>
             <a href="#features"><Button size="lg" variant="secondary">{t('hero.cta2')}</Button></a>
+            <Link to="/android"><Button size="lg" variant="ghost" icon={<Smartphone size={18} />}>{t('dl.nav')}</Button></Link>
           </motion.div>
         </div>
         <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15, duration: 0.6 }} className="relative">
@@ -202,7 +205,7 @@ function About() {
 
 function Footer() {
   const contact = import.meta.env.VITE_CONTACT_EMAIL as string | undefined
-  const cols: [string, [string, string][]][] = [['Product', [['Features', '#features'], ['Pricing', '#pricing'], ['How it works', '#how']]], ['Resources', [['Documentation', '/api/v1/docs/'], ...(contact ? [['Contact', `mailto:${contact}`] as [string, string]] : [])]], ['Legal', [['Privacy Policy', '/privacy'], ['Terms of Service', '/terms']]]]
+  const cols: [string, [string, string][]][] = [['Product', [['Features', '#features'], ['Pricing', '#pricing'], ['How it works', '#how'], ['Android app', '/android']]], ['Resources', [['Documentation', '/api/v1/docs/'], ...(contact ? [['Contact', `mailto:${contact}`] as [string, string]] : [])]], ['Legal', [['Privacy Policy', '/privacy'], ['Terms of Service', '/terms']]]]
   return (
     <footer className="border-t border-line">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_repeat(3,1fr)]">
