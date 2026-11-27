@@ -11,6 +11,16 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), geolocation=(), microphone=(self)
     routes:
       # The browser only ever talks to this site; Render forwards /api to the backend (same origin: no CORS, relative file links keep working).
       - type: rewrite
