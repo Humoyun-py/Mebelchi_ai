@@ -87,7 +87,7 @@ void main() {
     await t.pump();
     final list = got as List;
     expect(list.length, 2);
-    expect(list[0], {'type': 'door', 'wall': 'south', 'offset': 300, 'width': 900, 'height': 2100, 'sill': 0});
+    expect(list[0], {'type': 'door', 'wall': 'north', 'offset': 100, 'width': 900, 'height': 2100, 'sill': 0});
     expect((list[1] as Map)['type'], 'window');
     expect((list[1] as Map)['sill'], 900);
   });
@@ -96,8 +96,8 @@ void main() {
     Object? got;
     final q = {
       'required': {'doors': 0, 'windows': 1},
-      'walls': [{'id': 'north', 'label': {'en': 'North'}}],
-      'wall_lengths': {'north': 1000},
+      'walls': [for (final w in ['north', 'east', 'south', 'west']) {'id': w, 'label': {'en': w}}],
+      'wall_lengths': {'north': 1000, 'east': 1000, 'south': 1000, 'west': 1000},
       'limits': {'door': {'width': [700, 1200], 'height': [1900, 2300]}, 'window': {'width': [400, 3000], 'height': [400, 2000], 'sill': [0, 1500]}, 'edge_margin': 100},
       'value': null,
     };
@@ -117,5 +117,34 @@ void main() {
     await t.pump();
     expect(got, isNull);
     expect(find.textContaining('1000 mm'), findsWidgets);
+  });
+
+  testWidgets('OpeningsStep places 2 doors and 4 windows in a 4 x 1 m room without misfits or overlaps', (t) async {
+    Object? got;
+    final q = {
+      'required': {'doors': 2, 'windows': 4},
+      'walls': [for (final w in ['north', 'east', 'south', 'west']) {'id': w, 'label': {'en': w}}],
+      'wall_lengths': {'north': 4000, 'east': 1000, 'south': 4000, 'west': 1000},
+      'limits': {'door': {'width': [600, 1200], 'height': [1800, 2400]}, 'window': {'width': [300, 3000], 'height': [300, 2400], 'sill': [0, 1500]}, 'edge_margin': 100, 'gap': 100},
+      'value': null,
+    };
+    await _pump(t, OpeningsStep(question: q, onSubmit: (v) async => got = v, busy: false));
+    for (var i = 0; i < 6 && find.text('Continue').evaluate().isEmpty; i++) {
+      await t.pump();
+    }
+    await t.scrollUntilVisible(find.text('Continue'), 300, scrollable: find.byType(Scrollable).first);
+    await t.tap(find.text('Continue'));
+    await t.pump();
+    final list = (got as List).cast<Map>();
+    expect(list.length, 6, reason: 'a misfit would have blocked the submit');
+    const len = {'north': 4000, 'east': 1000, 'south': 4000, 'west': 1000};
+    for (final wall in len.keys) {
+      final on = list.where((o) => o['wall'] == wall).toList()..sort((a, b) => (a['offset'] as int).compareTo(b['offset'] as int));
+      for (var i = 0; i < on.length; i++) {
+        expect(on[i]['offset'] as int, greaterThanOrEqualTo(100));
+        expect((on[i]['offset'] as int) + (on[i]['width'] as int), lessThanOrEqualTo(len[wall]! - 100));
+        if (i > 0) expect((on[i]['offset'] as int) - ((on[i - 1]['offset'] as int) + (on[i - 1]['width'] as int)), greaterThanOrEqualTo(100));
+      }
+    }
   });
 }

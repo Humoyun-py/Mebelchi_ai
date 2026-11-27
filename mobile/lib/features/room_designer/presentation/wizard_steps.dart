@@ -276,19 +276,44 @@ class _OpeningsStepState extends ConsumerState<OpeningsStep> {
     final saved = asJsonList(widget.question['value']);
     final lens = asJson(widget.question['wall_lengths']);
     final margin = ((limits['edge_margin'] as num?) ?? 100).round();
-    // Defaults must fit their wall: a short wall gets a narrower opening and an offset inside the margins.
-    ({int offset, int width}) fit(String wall, int offset, int width) {
-      final len = ((lens[wall] as num?) ?? 100000).round();
-      final w = width.clamp(300, len - 2 * margin < 300 ? 300 : len - 2 * margin).toInt();
-      final maxOff = len - margin - w;
-      return (offset: offset.clamp(margin, maxOff < margin ? margin : maxOff).toInt(), width: w);
+    final gap = ((limits['gap'] as num?) ?? 100).round();
+    // Every default must fit its wall and not touch another opening: each opening takes the first wall (in its preferred order) where it
+    // fits at full width and is only narrowed when no wall can take it.
+    final placed = <_OpeningDraft>[];
+    final available = [for (final w in asJsonList(widget.question['walls'])) w['id'] as String];
+    void place(String type, List<String> preferred, int width, int height, int sill) {
+      // only walls the server offers (a wall missing from the list would break the dropdown)
+      final order = available.isEmpty ? preferred : [for (final w in preferred) if (available.contains(w)) w, for (final w in available) if (!preferred.contains(w)) w];
+      for (var w = width; w >= 300; w -= 100) {
+        for (final wall in order) {
+          final len = ((lens[wall] as num?) ?? 100000).round();
+          final taken = placed.where((o) => o.wall == wall).toList()..sort((x, y) => x.offset.compareTo(y.offset));
+          var offset = margin;
+          for (final t in taken) {
+            if (offset + w + gap <= t.offset) break;
+            offset = offset > t.offset + t.width + gap ? offset : t.offset + t.width + gap;
+          }
+          if (offset + w <= len - margin) {
+            placed.add(_OpeningDraft(type: type, wall: wall, offset: offset, width: w, height: height, sill: sill));
+            return;
+          }
+        }
+      }
+      final len = ((lens[order.first] as num?) ?? 100000).round();
+      placed.add(_OpeningDraft(type: type, wall: order.first, offset: margin, width: width.clamp(300, len - 2 * margin < 300 ? 300 : len - 2 * margin).toInt(), height: height, sill: sill));
+    }
+
+    if (saved.isEmpty) {
+      for (var i = 0; i < ((req['doors'] as num?) ?? 0); i++) {
+        place('door', i.isOdd ? ['south', 'north', 'east', 'west'] : ['north', 'south', 'east', 'west'], _clamp(900, door['width'] as List?), _clamp(2100, door['height'] as List?), 0);
+      }
+      for (var i = 0; i < ((req['windows'] as num?) ?? 0); i++) {
+        place('window', i.isOdd ? ['west', 'east', 'north', 'south'] : ['east', 'west', 'north', 'south'], _clamp(1200, win['width'] as List?), _clamp(1200, win['height'] as List?), _clamp(900, win['sill'] as List?));
+      }
     }
     _drafts = saved.isNotEmpty
         ? [for (final o in saved) _OpeningDraft(type: o['type'] as String, wall: o['wall'] as String, offset: (o['offset'] as num).round(), width: (o['width'] as num).round(), height: (o['height'] as num).round(), sill: ((o['sill'] ?? 0) as num).round())]
-        : [
-            for (var i = 0; i < ((req['doors'] as num?) ?? 0); i++) _OpeningDraft(type: 'door', wall: 'south', offset: fit('south', 300 + i * 1200, _clamp(900, door['width'] as List?)).offset, width: fit('south', 300 + i * 1200, _clamp(900, door['width'] as List?)).width, height: _clamp(2100, door['height'] as List?), sill: 0),
-            for (var i = 0; i < ((req['windows'] as num?) ?? 0); i++) _OpeningDraft(type: 'window', wall: 'north', offset: fit('north', 300 + i * 1600, _clamp(1200, win['width'] as List?)).offset, width: fit('north', 300 + i * 1600, _clamp(1200, win['width'] as List?)).width, height: _clamp(1200, win['height'] as List?), sill: _clamp(900, win['sill'] as List?)),
-          ];
+        : placed;
     _ctrls = [
       for (final d in _drafts) [for (final v in [d.offset, d.width, d.height, d.sill]) TextEditingController(text: '$v')]
     ];
@@ -312,6 +337,15 @@ class _OpeningsStepState extends ConsumerState<OpeningsStep> {
     if (offset == null || width == null || len == null) return null;
     final margin = ((asJson(widget.question['limits'])['edge_margin'] as num?) ?? 100).round();
     if (offset < margin) return s.f('rd.err.offsetMin', {'m': '$margin'});
+    final gap = ((asJson(widget.question['limits'])['gap'] as num?) ?? 100).round();
+    for (var j = 0; j < _drafts.length; j++) {
+      if (j == i || _drafts[j].wall != _drafts[i].wall) continue;
+      final o = int.tryParse(_ctrls[j][0].text.trim());
+      final w = int.tryParse(_ctrls[j][1].text.trim());
+      if (o == null || w == null) continue;
+      final clash = offset < o + w + gap && o < offset + width + gap;
+      if (clash && (o < offset || (o == offset && j < i))) return s.f('rd.err.overlap', {'gap': '$gap'});
+    }
     if (offset + width > len - margin) {
       final room = len - margin - offset;
       return room >= 300 ? s.f('rd.err.fitWidth', {'max': '$room', 'len': '$len'}) : s.f('rd.err.fitOffset', {'len': '$len', 'm': '$margin'});

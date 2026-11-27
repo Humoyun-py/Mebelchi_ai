@@ -72,22 +72,25 @@ export const nextRotation = (r: Rot): Rot => ((r + 90) % 360) as Rot
 export const wallLength = (room: RoomSize, wall: Wall) => (wall === 'north' || wall === 'south' ? room.width : room.length)
 
 /** Starting values for the openings form: spread over the walls so the first suggestion is already valid for a typical room. */
-export function defaultOpenings(required: { doors: number; windows: number }, room: RoomSize, margin = 100): RoomOpening[] {
-  // Defaults must always fit their wall (a short wall gets a narrower opening), so the first "Next" never fails for a reason the user did not cause.
-  const fit = (wall: Wall, offset: number, width: number) => {
-    const len = wallLength(room, wall)
-    const w = Math.max(300, Math.min(width, len - 2 * margin))
-    return { offset: Math.max(margin, Math.min(offset, len - margin - w)), width: w }
-  }
+export function defaultOpenings(required: { doors: number; windows: number }, room: RoomSize, margin = 100, gap = 100, available: Wall[] = [...WALLS]): RoomOpening[] {
+  // Every default must fit its wall AND not touch another opening. Each opening takes the first wall (in its preferred order) where it fits at
+  // full width, and is only narrowed when no wall can take it; so a short wall never produces an error the user did not cause.
   const out: RoomOpening[] = []
-  for (let i = 0; i < required.doors; i++) {
-    const wall: Wall = i % 2 ? 'south' : 'north'
-    out.push({ type: 'door', wall, ...fit(wall, 500, 900), height: 2100, sill: 0 })
+  const place = (type: 'door' | 'window', preferred: Wall[], width: number, height: number, sill: number) => {
+    const order = [...preferred.filter((w) => available.includes(w)), ...available.filter((w) => !preferred.includes(w))]
+    for (let w = width; w >= 300; w -= 100) {
+      for (const wall of order) {
+        const len = wallLength(room, wall)
+        const taken = out.filter((o) => o.wall === wall).sort((x, y) => x.offset - y.offset)
+        let offset = margin
+        for (const t of taken) { if (offset + w + gap <= t.offset) break; offset = Math.max(offset, t.offset + t.width + gap) }
+        if (offset + w <= len - margin) { out.push({ type, wall, offset, width: w, height, sill }); return }
+      }
+    }
+    const wall = order[0]; out.push({ type, wall, offset: margin, width: Math.max(300, Math.min(width, wallLength(room, wall) - 2 * margin)), height, sill })
   }
-  for (let i = 0; i < required.windows; i++) {
-    const wall: Wall = i % 2 ? 'west' : 'east'
-    out.push({ type: 'window', wall, ...fit(wall, 800 + 1500 * Math.floor(i / 2), 1200), height: 1200, sill: 900 })
-  }
+  for (let i = 0; i < required.doors; i++) place('door', i % 2 ? ['south', 'north', 'east', 'west'] : ['north', 'south', 'east', 'west'], 900, 2100, 0)
+  for (let i = 0; i < required.windows; i++) place('window', i % 2 ? ['west', 'east', 'north', 'south'] : ['east', 'west', 'north', 'south'], 1200, 1200, 900)
   return out
 }
 

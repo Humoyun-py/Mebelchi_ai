@@ -78,17 +78,42 @@ describe('Room designer: wizard', () => {
     const sent = vi.mocked(api.post).mock.calls[0][1] as { step: string; value: { type: string }[] }
     expect(sent.step).toBe('openings'); expect(sent.value.map((o) => o.type)).toEqual(['door', 'window'])
   })
-  it('on a short wall the default window is narrowed to fit, and a manual overflow is explained per opening without calling the server', async () => {
+  const shortRoom = (required: { doors: number; windows: number }) => {
     const walls = [{ id: 'north', label: loc('North wall') }, { id: 'east', label: loc('East wall') }, { id: 'south', label: loc('South wall') }, { id: 'west', label: loc('West wall') }] as never
-    const ops = flow({ step: 'openings', question: q('openings', { kind: 'openings', index: 5, can_back: true, required: { doors: 0, windows: 1 }, room: { width: 4000, length: 1000, height: 2700 }, walls, wall_lengths: { north: 4000, east: 1000, south: 4000, west: 1000 }, limits: { door: { width: [600, 1200], height: [1800, 2400] }, window: { width: [300, 3000], height: [300, 2400], sill: [0, 1500] }, edge_margin: 100, gap: 100 } }) })
-    open(ops); vi.mocked(api.post).mockResolvedValue({ data: ops } as never)
+    return flow({ step: 'openings', question: q('openings', { kind: 'openings', index: 5, can_back: true, required, room: { width: 4000, length: 1000, height: 2700 }, walls, wall_lengths: { north: 4000, east: 1000, south: 4000, west: 1000 }, limits: { door: { width: [600, 1200], height: [1800, 2400] }, window: { width: [300, 3000], height: [300, 2400], sill: [0, 1500] }, edge_margin: 100, gap: 100 } }) })
+  }
+  it('puts every default opening on a wall where it fits and never on top of another one (2 doors + 4 windows in a 4 x 1 m room)', async () => {
+    const ops = shortRoom({ doors: 2, windows: 4 }); open(ops); vi.mocked(api.post).mockResolvedValue({ data: ops } as never)
+    expect(await screen.findByText('Window 4')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => expect(api.post).toHaveBeenCalled())
+    const sent = (vi.mocked(api.post).mock.calls[0][1] as { value: { wall: string; offset: number; width: number }[] }).value
+    expect(sent).toHaveLength(6)
+    const len: Record<string, number> = { north: 4000, east: 1000, south: 4000, west: 1000 }
+    for (const w of Object.keys(len)) {
+      const on = sent.filter((o) => o.wall === w).sort((a, b) => a.offset - b.offset)
+      on.forEach((o, i) => { expect(o.offset).toBeGreaterThanOrEqual(100); expect(o.offset + o.width).toBeLessThanOrEqual(len[w] - 100); if (i) expect(o.offset - (on[i - 1].offset + on[i - 1].width)).toBeGreaterThanOrEqual(100) })
+    }
+  })
+  it('explains per opening (in the user language) when a window is moved to a wall it does not fit, and blocks Next without calling the server', async () => {
+    const ops = shortRoom({ doors: 0, windows: 1 }); open(ops); vi.mocked(api.post).mockResolvedValue({ data: ops } as never)
     expect(await screen.findByText('Window 1')).toBeInTheDocument()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument() // the default (1200 mm) was narrowed to fit the 1000 mm wall
-    fireEvent.change(screen.getByLabelText(/^Width/), { target: { value: '1200' } })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Wall'), { target: { value: 'east' } })
     expect(await screen.findByRole('alert')).toHaveTextContent(/does not fit the 1000 mm wall/)
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(api.post).not.toHaveBeenCalled()
+  })
+  it('flags two openings that overlap on one wall', async () => {
+    const ops = shortRoom({ doors: 0, windows: 2 }); open(ops)
+    expect(await screen.findByText('Window 2')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    const walls = screen.getAllByLabelText('Wall'); fireEvent.change(walls[1], { target: { value: (walls[0] as HTMLSelectElement).value } })
+    const offsets = screen.getAllByLabelText(/^Distance|offset/i)
+    fireEvent.change(offsets[1], { target: { value: String((offsets[0] as HTMLInputElement).value) } })
+    expect(await screen.findByRole('alert')).toHaveTextContent(/overlaps another one/)
   })
   it('goes back one step and reports a conflict', async () => {
     open(flow({ step: 'size', question: q('size', { kind: 'number_group', can_back: true, index: 4, fields: [] }) }))

@@ -78,14 +78,17 @@ function Group({ q, submit, busy, error }: { q: Question } & Omit<Props, 'flow' 
 function Openings({ q, submit, busy, error }: { q: Question } & Omit<Props, 'flow' | 'onBack'>) {
   const L = useL(); const t = useT()
   const room = (q.room ?? { width: 4000, length: 3000, height: 2700 }) as RoomSize
-  const [rows, setRows] = useState<RoomOpening[]>(() => (Array.isArray(q.value) && q.value.length ? (q.value as RoomOpening[]) : defaultOpenings(q.required ?? { doors: 0, windows: 0 }, room)))
+  const [rows, setRows] = useState<RoomOpening[]>(() => (Array.isArray(q.value) && q.value.length ? (q.value as RoomOpening[]) : defaultOpenings(q.required ?? { doors: 0, windows: 0 }, room, q.limits?.edge_margin ?? 100, q.limits?.gap ?? 100, q.walls?.map((w) => w.id))))
   const upd = (i: number, patch: Partial<RoomOpening>) => setRows((r) => r.map((o, j) => (j === i ? { ...o, ...patch } : o)))
   const nth = (i: number) => rows.slice(0, i + 1).filter((x) => x.type === rows[i].type).length
   const margin = q.limits?.edge_margin ?? 100
   // Checked here first, in the user's language and per opening; the server repeats the same rule (and stays the authority).
+  const gap = q.limits?.gap ?? 100
   const problem = (o: RoomOpening): string | null => {
     const len = q.wall_lengths?.[o.wall]
     if (len == null) return null
+    const clash = rows.some((x) => x !== o && x.wall === o.wall && o.offset < x.offset + x.width + gap && x.offset < o.offset + o.width + gap && (x.offset < o.offset || (x.offset === o.offset && rows.indexOf(x) < rows.indexOf(o))))
+    if (clash) return t('room.err.overlap').replace('{gap}', String(gap))
     if (o.offset < margin) return t('room.err.offsetMin').replace('{m}', String(margin))
     if (o.offset + o.width > len - margin) {
       const room = len - margin - o.offset
