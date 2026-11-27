@@ -35,6 +35,7 @@ TRACKED: dict[str, set[str]] = {
     "workshops.Order": {"customer_phone", "customer_email", "customer_address"},
     "workshops.Task": set(),
     "furniture.FurnitureTemplate": set(),
+    "releases.AppRelease": {"apk"},
 }
 SENSITIVE_WORDS = ("password", "token", "secret", "api_key")
 MAX_VALUE_LEN = 200

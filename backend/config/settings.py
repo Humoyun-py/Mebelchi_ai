@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "apps.ai",
     "apps.finance",
     "apps.marketplace",
+    "apps.releases",
     "apps.subscriptions",
     "apps.notifications",
     "apps.analytics",
@@ -74,6 +75,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # serves collected static files (admin CSS) when no nginx is in front, e.g. Render
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -126,9 +128,28 @@ ORDER_REMINDER_MAX = int(env("ORDER_REMINDER_MAX", "6"))          # ... at most 
 AI_PROVIDER = env("AI_PROVIDER", "")
 AI_API_KEY = env("AI_API_KEY", "")
 AI_MODEL = env("AI_MODEL", "")
-AI_PROVIDERS: dict[str, str] = {}
+# Adapters are registered here but stay inert: get_provider() returns the disabled provider until AI_PROVIDER, AI_API_KEY and AI_MODEL are all set.
+AI_PROVIDERS: dict[str, str] = {"openai": "apps.ai.adapters.OpenAIProvider", "anthropic": "apps.ai.adapters.AnthropicProvider"}
+AI_TIMEOUT_SECONDS = float(env("AI_TIMEOUT_SECONDS", "60"))
+# SMS: disabled until SMS_PROVIDER=eskiz and the Eskiz gateway login/password are set. No SMS is ever sent otherwise.
 SMS_PROVIDER = env("SMS_PROVIDER", "")
-SMS_PROVIDERS: dict[str, str] = {}
+SMS_PROVIDERS: dict[str, str] = {"eskiz": "apps.core.sms.EskizSms"}
+ESKIZ_BASE_URL = env("ESKIZ_BASE_URL", "https://notify.eskiz.uz")
+ESKIZ_EMAIL = env("ESKIZ_EMAIL", "")
+ESKIZ_PASSWORD = env("ESKIZ_PASSWORD", "")
+ESKIZ_FROM = env("ESKIZ_FROM", "")                                  # optional sender nick; empty = the account's default nick
+PHONE_CODE_TTL_SECONDS = int(env("PHONE_CODE_TTL_SECONDS", "300"))
+PHONE_CODE_MAX_ATTEMPTS = int(env("PHONE_CODE_MAX_ATTEMPTS", "5"))
+PHONE_CODE_RESEND_SECONDS = int(env("PHONE_CODE_RESEND_SECONDS", "60"))
+PHONE_CODE_MAX_PER_DAY = int(env("PHONE_CODE_MAX_PER_DAY", "5"))
+# Payments: a provider is live only when ALL of its settings are set. Click and Uzum are not implemented (their official protocol could not be verified).
+PAYME_MERCHANT_ID = env("PAYME_MERCHANT_ID", "")
+PAYME_LOGIN = env("PAYME_LOGIN", "")                                # Basic-auth login given by Payme Business (not a fixed value)
+PAYME_KEY = env("PAYME_KEY", "")                                    # the cash-register key (Basic-auth password)
+PAYME_ACCOUNT_FIELD = env("PAYME_ACCOUNT_FIELD", "order_id")        # name of the account field configured in the Payme web cash register
+PAYME_CHECKOUT_URL = env("PAYME_CHECKOUT_URL", "https://checkout.paycom.uz")
+# Behind nginx: when set (e.g. /_protected/releases/) APK downloads are served by nginx through X-Accel-Redirect instead of by gunicorn.
+RELEASES_X_ACCEL_PREFIX = env("RELEASES_X_ACCEL_PREFIX", "")
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_BOT_API_SECRET = env("TELEGRAM_BOT_API_SECRET", "")
 AUTH_PASSWORD_VALIDATORS = [
@@ -201,6 +222,7 @@ REST_FRAMEWORK = {
         "auth": env("THROTTLE_AUTH", "10/min"),
         "export": env("THROTTLE_EXPORT", "30/min"),
         "telegram": env("THROTTLE_TELEGRAM", "120/min"),
+        "sms": env("THROTTLE_SMS", "5/hour"),
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],

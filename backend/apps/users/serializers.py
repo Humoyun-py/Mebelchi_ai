@@ -8,10 +8,11 @@ class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     avatar_url = serializers.SerializerMethodField()
     is_admin = serializers.SerializerMethodField()
+    phone_verified = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "email", "first_name", "last_name", "full_name", "phone", "avatar_url", "role", "role_selected",
+        fields = ["id", "email", "first_name", "last_name", "full_name", "phone", "phone_verified", "avatar_url", "role", "role_selected",
                   "theme", "language", "notify_email", "notify_system", "is_admin", "date_joined"]
         read_only_fields = ["id", "email", "role", "role_selected", "date_joined"]
 
@@ -23,6 +24,15 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_is_admin(self, obj):
         return obj.is_staff or obj.is_superuser
+
+    def get_phone_verified(self, obj):
+        return obj.phone_verified_at is not None
+
+    def update(self, instance, validated_data):
+        # a changed number is no longer the verified one
+        if "phone" in validated_data and validated_data["phone"] != instance.phone:
+            instance.phone_verified_at = None
+        return super().update(instance, validated_data)
 
 
 class RoleSerializer(serializers.Serializer):

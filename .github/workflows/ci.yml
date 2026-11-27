@@ -109,6 +109,25 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m pytest -q
 
+  mobile:
+    name: Mobile (Flutter analyze and tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.7"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Static analysis
+        run: flutter analyze
+      - name: Tests (the live-backend test is skipped without MEBELCHI_E2E_URL)
+        run: flutter test
+
   backup-restore:
     name: Backup, restore and release gate (PostgreSQL 16)
     runs-on: ubuntu-latest

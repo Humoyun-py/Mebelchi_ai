@@ -6,6 +6,7 @@ import { Skeleton } from './components/ui/Misc'
 import AppShell from './layouts/AppShell'
 import Landing from './pages/landing/Landing'
 import Legal from './pages/landing/Legal'
+import Download from './pages/landing/Download'
 import { ForgotPassword, Login, Register, ResetPassword } from './pages/auth/Auth'
 import RoleSelect from './pages/auth/RoleSelect'
 
@@ -51,6 +52,7 @@ export default function App() {
     <>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/android" element={<Download />} />
         <Route path="/privacy" element={<Legal />} />
         <Route path="/terms" element={<Legal />} />
         <Route path="/login" element={<Guest><Login /></Guest>} />

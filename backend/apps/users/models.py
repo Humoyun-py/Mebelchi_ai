@@ -48,6 +48,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=80)
     last_name = models.CharField(max_length=80)
     phone = models.CharField(max_length=32, blank=True)
+    phone_verified_at = models.DateTimeField(null=True, blank=True, editable=False)
     avatar = models.ImageField(upload_to="avatars/", blank=True, validators=[validate_image])
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.HOMEOWNER)
     role_selected = models.BooleanField(default=False)
@@ -65,6 +66,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         ordering = ["-date_joined"]
+        constraints = [
+            # a phone number proves one account only; unverified numbers may repeat, verified ones may not
+            models.UniqueConstraint(fields=["phone"], condition=models.Q(phone_verified_at__isnull=False), name="user_verified_phone_unique"),
+        ]
 
     def __str__(self):
         return self.email
@@ -72,3 +77,19 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
+
+
+class PhoneVerification(models.Model):
+    """One SMS code sent to prove that a user controls a phone number. Only a keyed hash of the code is stored."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="phone_verifications")
+    phone = models.CharField(max_length=12)                     # normalised 998XXXXXXXXX
+    code_hash = models.CharField(max_length=64)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    used_at = models.DateTimeField(null=True, blank=True)       # set when confirmed, superseded by a newer code, or locked out
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["user", "-created_at"], name="phoneverif_user_idx")]

@@ -142,3 +142,20 @@ docker compose exec backend python manage.py audit_archive --verify  --out-dir /
 `--archive` writes gzip JSON-lines files plus a manifest (row count, id range, SHA-256), continues after the highest archived id, never overwrites, and **deletes nothing**. `--verify` re-checks every file and that archived rows still match the table. Copy the archive directory off the host together with the backups. A daily Celery task logs a WARNING when the table exceeds `AUDIT_TABLE_WARN_MB` (default 2048).
 
 **Dedicated roles (recommended, once).** `deploy/sql/audit_roles.sql`, run by a superuser, creates the read-only `mebelchi_audit_archiver` role (set `AUDIT_ARCHIVER_USER` / `AUDIT_ARCHIVER_PASSWORD` so `audit_archive` reads through it) and moves the table, its sequence and the `public` schema to a NOLOGIN owner role. The application role then keeps only SELECT and INSERT: it cannot UPDATE, DELETE, TRUNCATE, ALTER or DROP the table, or drop its triggers (tested). Consequence: a future migration that alters `audit_auditlog` must be run by a superuser. Shrinking the table (after `--verify` and an off-host copy) is likewise a superuser decision, for example a partition drop; there is intentionally no code path for it.
+
+## 11. Android app releases
+
+The signed APK is built on a developer machine (never in the repository) and published on the server; the website page `/android` then offers it.
+
+1. **Signing key.** Create it once, keep it outside the repository, back it up in at least two places. If it is lost, existing installs can never be updated. `mobile/android/key.properties` and `*.jks` are git-ignored; the build reads the path from `MEBELCHI_KEY_PROPERTIES`. A release build without it stops with an error (it is never signed with the debug key).
+2. **Build.** Raise `version:` in `mobile/pubspec.yaml` (`1.0.1+2`: the number after `+` is Android's versionCode and must grow every time), then
+   `API_BASE_URL=https://your-domain/api/v1 MEBELCHI_KEY_PROPERTIES=/path/key.properties mobile/tool/release_android.sh`.
+   The script runs analyze and tests, builds an ARM release, verifies the signature with `apksigner`, refuses a debug signature, and writes `mobile/dist/mebelchi-ai-<version>-<code>.apk` with a `.sha256` file.
+3. **Publish** (a deliberate production step): copy the APK into the backend container and run
+   `python manage.py publish_android_release --apk FILE.apk --app-version 1.0.1 --code 2 --notes-file notes.txt --publish`.
+   The command recomputes the checksum from the file, stores it under `MEDIA_ROOT/releases/` and prints the SHA-256. Without `--publish` the build is only registered; publish or unpublish it in the Django admin (*Mobile app releases*).
+4. **nginx.** The `web` container mounts the `media` volume read-only and serves `/_protected/releases/` (internal) for X-Accel-Redirect; `/media/` stays 404. `docker compose up -d --build` applies it.
+5. **Development builds** (`flutter build apk --debug`) install as `uz.mebelchi.app.dev` named "Mebelchi AI Dev" next to the production app and are never listed publicly (`--channel development` keeps them registered for the team only).
+6. **Google Play later:** the application id `uz.mebelchi.app` is fixed; Play needs an app bundle (`flutter build appbundle`) signed with an upload key, which is outside this setup.
+
+Users must allow installing from the browser or file manager once (Android "unknown sources"); the page explains this and shows the SHA-256 so the file can be verified.

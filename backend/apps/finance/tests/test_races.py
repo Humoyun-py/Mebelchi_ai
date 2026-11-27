@@ -18,9 +18,9 @@ M = "/api/v1/marketplace/"
 POSTGRES = connection.vendor == "postgresql"
 
 
-@skipUnless(POSTGRES, "needs concurrent PostgreSQL connections")
-class MoneyRaceTests(TransactionTestCase):
+class _RaceBase(TransactionTestCase):
     serialized_rollback = True      # same as the other race tests: flushing must restore content types for the classes that run after
+
     def _fixture_teardown(self):
         with connection.cursor() as c:
             c.execute("ALTER TABLE audit_auditlog DISABLE TRIGGER USER")
@@ -30,6 +30,9 @@ class MoneyRaceTests(TransactionTestCase):
             with connection.cursor() as c:
                 c.execute("ALTER TABLE audit_auditlog ENABLE TRIGGER USER")
 
+
+@skipUnless(POSTGRES, "needs concurrent PostgreSQL connections")
+class MoneyRaceTests(_RaceBase):
     def setUp(self):
         self.ws = shop("Alpha", "a@x.com")
         self.user, self.c = customer()
@@ -58,3 +61,58 @@ class MoneyRaceTests(TransactionTestCase):
         self.assertEqual(sum(sent), 1)
         self.assertEqual(Order.objects.get(pk=self.oid).reminders_sent, 1)
         self.assertEqual(Notification.objects.filter(user=self.ws.owner, title__startswith="Reminder").count(), 1)
+
+
+@skipUnless(POSTGRES, "needs concurrent PostgreSQL connections")
+class PaymeRaceTests(_RaceBase):
+    """Payme retries calls and may send them in parallel: one transaction row and one payment, whatever the interleaving."""
+
+    def setUp(self):
+        from django.test import override_settings
+        self._ov = override_settings(PAYME_LOGIN="Paycom", PAYME_KEY="test-key-0123456789", PAYME_ACCOUNT_FIELD="order_id")
+        self._ov.enable()
+        self.addCleanup(self._ov.disable)
+        self.ws = shop("Alpha", "a@x.com")
+        self.user, self.c = customer()
+        r = self.c.post(M + "orders/", {"workshop": self.ws.pk, "furniture": FURN}, format="json")
+        self.oid = r.data["id"]
+        client_for(self.ws.owner).patch(f"/api/v1/orders/{self.oid}/", {"status": "confirmed"}, format="json")
+        o = Order.objects.get(pk=self.oid)
+        Order.objects.filter(pk=o.pk).update(total_price=Decimal("1000000"), quote={**o.quote, "currency": "UZS"})
+        self.num = o.order_number
+
+    def call(self, method, params):
+        import base64
+        import json
+
+        from django.db import connection as conn
+        from django.test import Client
+        try:
+            r = Client().post("/api/v1/payments/webhook/payme/", data=json.dumps({"method": method, "params": params, "id": 1}), content_type="text/json",
+                              HTTP_AUTHORIZATION="Basic " + base64.b64encode(b"Paycom:test-key-0123456789").decode())
+            return r.json()
+        finally:
+            conn.close()
+
+    def test_parallel_create_with_one_id_makes_one_transaction(self):
+        from apps.finance.models import PaymentTransaction
+        p = {"id": "tx1", "time": 1, "amount": 100_000_000, "account": {"order_id": self.num}}
+        res = run_together([lambda: self.call("CreateTransaction", p) for _ in range(5)])
+        self.assertTrue(all("result" in r for r in res), res)
+        self.assertEqual(PaymentTransaction.objects.count(), 1)
+
+    def test_parallel_perform_pays_once(self):
+        from apps.finance.models import OrderPayment, PaymentTransaction
+        self.call("CreateTransaction", {"id": "tx1", "time": 1, "amount": 100_000_000, "account": {"order_id": self.num}})
+        res = run_together([lambda: self.call("PerformTransaction", {"id": "tx1"}) for _ in range(5)])
+        self.assertTrue(all(r.get("result", {}).get("state") == 2 for r in res), res)
+        self.assertEqual(OrderPayment.objects.count(), 1)
+        self.assertEqual(Order.objects.get(pk=self.oid).paid_amount, Decimal("1000000"))
+        self.assertEqual(PaymentTransaction.objects.get().status, "performed")
+
+    def test_two_different_invoices_for_one_order_never_both_open(self):
+        from apps.finance.models import PaymentTransaction
+        calls = [lambda i=i: self.call("CreateTransaction", {"id": f"tx{i}", "time": 1, "amount": 100_000_000, "account": {"order_id": self.num}}) for i in range(4)]
+        res = run_together(calls)
+        self.assertEqual(sum("result" in r for r in res), 1, res)
+        self.assertEqual(PaymentTransaction.objects.filter(status="created").count(), 1)

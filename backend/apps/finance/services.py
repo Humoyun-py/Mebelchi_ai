@@ -92,6 +92,47 @@ def create_payment(actor, order: Order, *, kind: str, amount, method: str, refer
         return row, True
 
 
+def _apply_confirmed(order: Order, row: OrderPayment):
+    """Moves a confirmed payment/refund into the order's totals. The caller holds the order lock and has validated the amount."""
+    if row.kind == P.Kind.PAYMENT:
+        order.paid_amount += row.amount
+        order.payment_status = Order.PaymentStatus.PAID if order.paid_amount >= order.total_price else Order.PaymentStatus.PARTIALLY_PAID
+    else:
+        if row.amount == order.paid_amount:
+            order.payment_status = Order.PaymentStatus.REFUNDED         # full refund: paid_amount stays as history, the record is closed
+        else:
+            order.paid_amount -= row.amount
+            order.payment_status = Order.PaymentStatus.PAID if order.paid_amount >= order.total_price else (
+                Order.PaymentStatus.PARTIALLY_PAID if order.paid_amount > 0 else Order.PaymentStatus.UNPAID)
+    save_with_event(order, f"order.{row.kind}_confirmed")
+
+
+def _notify_confirmed(order: Order, row: OrderPayment):
+    text = f"{'Payment' if row.kind == P.Kind.PAYMENT else 'Refund'} of {row.amount} was confirmed for order {order.order_number}."
+    if order.customer_user:
+        notify(order.customer_user, f"Order {order.order_number}", text)
+    notify(order.workshop.owner, f"Order {order.order_number}", text)
+
+
+def settle_provider_payment(order_id: int, *, kind: str, amount, reference: str, idempotency_key: str) -> OrderPayment:
+    """Records AND confirms a payment/refund that a payment provider reported through a verified webhook. Must run inside the caller's
+    transaction. The same idempotency key returns the first row, so a retried webhook never moves money twice. Raises ValidationError
+    when the order can no longer take the amount (the caller maps that to the provider's own error)."""
+    order = Order.objects.select_for_update(of=("self",)).select_related("customer_user", "workshop__owner").get(pk=order_id)
+    same = P.objects.filter(order=order, idempotency_key=idempotency_key).first()
+    if same:
+        return same
+    amount = money(amount)
+    _validate_amount(order, kind, amount)
+    row = P.objects.create(order=order, kind=kind, status=Status.CONFIRMED, method=P.Method.PROVIDER, amount=amount, reference=reference[:80],
+                           idempotency_key=idempotency_key, decided_at=timezone.now())
+    _apply_confirmed(order, row)
+    record("create", model="finance.OrderPayment", object_id=row.pk, object_repr=f"{kind} {amount} {order.order_number}", actor=None,
+           event=f"payment.{kind}_provider")
+    _notify_confirmed(order, row)
+    return row
+
+
 def confirm_payment(actor, payment_id: int) -> OrderPayment:
     if not (actor.is_staff or actor.is_superuser):
         raise PermissionDenied("Only a platform administrator can confirm payments.")
@@ -101,25 +142,12 @@ def confirm_payment(actor, payment_id: int) -> OrderPayment:
             raise err("status", f"This payment is already {row.status}.")
         order = Order.objects.select_for_update(of=("self",)).select_related("customer_user", "workshop__owner").get(pk=row.order_id)
         _validate_amount(order, row.kind, row.amount)
-        if row.kind == P.Kind.PAYMENT:
-            order.paid_amount += row.amount
-            order.payment_status = Order.PaymentStatus.PAID if order.paid_amount >= order.total_price else Order.PaymentStatus.PARTIALLY_PAID
-        else:
-            if row.amount == order.paid_amount:
-                order.payment_status = Order.PaymentStatus.REFUNDED         # full refund: paid_amount stays as history, the record is closed
-            else:
-                order.paid_amount -= row.amount
-                order.payment_status = Order.PaymentStatus.PAID if order.paid_amount >= order.total_price else (
-                    Order.PaymentStatus.PARTIALLY_PAID if order.paid_amount > 0 else Order.PaymentStatus.UNPAID)
-        save_with_event(order, f"order.{row.kind}_confirmed")
+        _apply_confirmed(order, row)
         row.status, row.decided_by, row.decided_at = Status.CONFIRMED, actor, timezone.now()
         row.save(update_fields=["status", "decided_by", "decided_at"])
         record("update", model="finance.OrderPayment", object_id=row.pk, object_repr=f"{row.kind} {row.amount} {order.order_number}", actor=actor,
                event=f"payment.{row.kind}_confirmed")
-        text = f"{'Payment' if row.kind == P.Kind.PAYMENT else 'Refund'} of {row.amount} was confirmed for order {order.order_number}."
-        if order.customer_user:
-            notify(order.customer_user, f"Order {order.order_number}", text)
-        notify(order.workshop.owner, f"Order {order.order_number}", text)
+        _notify_confirmed(order, row)
         return row
 
 
